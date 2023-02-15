@@ -46,6 +46,7 @@ void USARTx_CFG(void) {
  * @return  none
  */
 void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
     GPIO_PinRemapConfig(GPIO_PartialRemap1_TIM1, ENABLE); // CH1-4: PC6, PC7, PC0, PD3
 
     GPIO_InitTypeDef GPIO_InitStructure = {0};
@@ -99,6 +100,7 @@ int main(void) {
     USART_Printf_Init(115200);
     printf("SystemClk:%d\r\n", SystemCoreClock);
     TIM1_PWMOut_Init((1 << 14), 0, (1 << 14) - 10);
+    printf("PCFR1: %08X\n", AFIO->PCFR1);
 
     USARTx_CFG();
 
