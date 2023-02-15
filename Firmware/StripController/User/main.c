@@ -1,39 +1,13 @@
-/********************************** (C) COPYRIGHT *******************************
- * File Name          : main.c
- * Author             : WCH
- * Version            : V1.0.0
- * Date               : 2022/08/08
- * Description        : Main program body.
- * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
- * SPDX-License-Identifier: Apache-2.0
- *******************************************************************************/
-
-/*
- *@Note
- Multiprocessor communication mode routine:
- Master:USART1_Tx(PD5)\USART1_Rx(PD6).
- This routine demonstrates that USART1 receives the data sent by CH341 and inverts
- it and sends it (baud rate 115200).
-
- Hardware connection:PD5 -- Rx
-                     PD6 -- Tx
-
-*/
-
 #include "debug.h"
 
-/* Global define */
-
-/* Global Variable */
 vu8 val;
 
-/*********************************************************************
- * @fn      USARTx_CFG
- *
- * @brief   Initializes the USART2 & USART3 peripheral.
- *
- * @return  none
- */
+// R  - T1CH1 - PC6
+// G  - T1CH2 - PC7
+// B  - T1CH3 - PC0
+// W  - T1CH4 - PD3
+// WW - T2CH2 - PD4
+
 void USARTx_CFG(void) {
     GPIO_InitTypeDef GPIO_InitStructure = {0};
     USART_InitTypeDef USART_InitStructure = {0};
@@ -72,16 +46,21 @@ void USARTx_CFG(void) {
  * @return  none
  */
 void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
+    GPIO_PinRemapConfig(GPIO_PartialRemap1_TIM1, ENABLE); // CH1-4: PC6, PC7, PC0, PD3
+
     GPIO_InitTypeDef GPIO_InitStructure = {0};
     TIM_OCInitTypeDef TIM_OCInitStructure = {0};
     TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure = {0};
 
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD | RCC_APB2Periph_TIM1, ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD | RCC_APB2Periph_TIM1, ENABLE);
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3 | GPIO_Pin_2;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOD, &GPIO_InitStructure);
+
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_6 | GPIO_Pin_7;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
 
     TIM_TimeBaseInitStructure.TIM_Period = arr;
     TIM_TimeBaseInitStructure.TIM_Prescaler = psc;
@@ -101,26 +80,25 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
     TIM_OCInitStructure.TIM_Pulse = ccp;
     TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
     TIM_OC1Init(TIM1, &TIM_OCInitStructure);
+    TIM_OC2Init(TIM1, &TIM_OCInitStructure);
+    TIM_OC3Init(TIM1, &TIM_OCInitStructure);
+    TIM_OC4Init(TIM1, &TIM_OCInitStructure);
 
     TIM_CtrlPWMOutputs(TIM1, ENABLE);
     TIM_OC1PreloadConfig(TIM1, TIM_OCPreload_Disable);
+    TIM_OC2PreloadConfig(TIM1, TIM_OCPreload_Disable);
+    TIM_OC3PreloadConfig(TIM1, TIM_OCPreload_Disable);
+    TIM_OC4PreloadConfig(TIM1, TIM_OCPreload_Disable);
     TIM_ARRPreloadConfig(TIM1, ENABLE);
     TIM_Cmd(TIM1, ENABLE);
 }
 
-/*********************************************************************
- * @fn      main
- *
- * @brief   Main program.
- *
- * @return  none
- */
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     Delay_Init();
     USART_Printf_Init(115200);
     printf("SystemClk:%d\r\n", SystemCoreClock);
-    TIM1_PWMOut_Init(100, 48000 - 1, 50);
+    TIM1_PWMOut_Init((1 << 14), 0, (1 << 14) - 10);
 
     USARTx_CFG();
 
