@@ -94,11 +94,15 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
     TIM_Cmd(TIM1, ENABLE);
 }
 
+#define ESIG_UNIID ((uint32_t *)0x1FFFF7E8)
+
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     Delay_Init();
     USART_Printf_Init(115200);
     printf("SystemClk:%d\r\n", SystemCoreClock);
+    printf("Chip ID: %08lX %08lX\n", ESIG_UNIID[0], ESIG_UNIID[1]);
+    printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
     TIM1_PWMOut_Init((1 << 14), 0, (1 << 14) - 10);
     printf("PCFR1: %08X\n", AFIO->PCFR1);
 
