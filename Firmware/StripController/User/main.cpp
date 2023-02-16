@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "uart.h"
+#include "util.h"
 
 vu8 val;
 
@@ -76,9 +77,10 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
 
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-    Delay_Init();
+    // Delay_Init();
     // USART_Printf_Init(115200);
-    Delay_Ms(1000);
+    // Delay_Ms(1000);
+    SysTickInit();
 
     uart1.init();
     TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
@@ -86,11 +88,21 @@ int main(void) {
     printf("SystemClk:%d\r\n", SystemCoreClock);
     printf("Chip ID: %08lX %08lX\n", ESIG_UNIID[0], ESIG_UNIID[1]);
     printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
+
     while (1) {
         while (uart1.available()) {
             printf("%c", uart1.read());
+            printf("%8ld %8ld\n", millis(), micros());
         }
-        Delay_Ms(1);
+        delay(100);
+        uint32_t start = micros();
+        uint32_t delta = micros() - start;
+        start = micros();
+        printf("%8d %4d", micros(), delta);
+        delta = micros() - start;
+        printf("%6d\n", delta);
+
+        // Delay_Ms(1);
     }
 }
 
