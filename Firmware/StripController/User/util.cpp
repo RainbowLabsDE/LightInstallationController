@@ -7,7 +7,7 @@
 
 const uint8_t ticksPerUs = SystemCoreClock / 8 / 1000000;
 const uint16_t ticksPerMs = ticksPerUs * 1000;
-uint32_t _millis = 0;
+volatile uint32_t _millis = 0;
 
 void SysTickInit() {
     SysTick->CTLR &= SysTick_CLKSource_HCLK_Div8;

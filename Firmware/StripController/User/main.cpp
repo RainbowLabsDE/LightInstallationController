@@ -12,7 +12,6 @@ vu8 val;
 // TX - PD5
 // RX - PD6
 
-
 /*********************************************************************
  * @fn      TIM1_OutCompare_Init
  *
@@ -77,11 +76,7 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
 
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-    // Delay_Init();
-    // USART_Printf_Init(115200);
-    // Delay_Ms(1000);
     SysTickInit();
-
     uart1.init();
     TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
 
@@ -94,18 +89,8 @@ int main(void) {
             printf("%c", uart1.read());
             printf("%8ld %8ld\n", millis(), micros());
         }
-        delay(100);
-        uint32_t start = micros();
-        uint32_t delta = micros() - start;
-        start = micros();
-        printf("%8d %4d", micros(), delta);
-        delta = micros() - start;
-        printf("%6d\n", delta);
-
-        // Delay_Ms(1);
     }
 }
-
 
 extern "C" {
 // needed for C++ compatibility, apparently
