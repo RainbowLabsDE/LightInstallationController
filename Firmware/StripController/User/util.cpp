@@ -68,3 +68,13 @@ void delay_us(uint32_t us) {
         while (micros() - start < us);
     }
 }
+
+
+#define ESIG_UNIID ((uint32_t *)0x1FFFF7E8)
+
+uint64_t getUID() {
+    uint64_t uid = *(ESIG_UNIID + 1);
+    uid <<= 32;
+    uid |= *ESIG_UNIID;
+    return uid;
+}
