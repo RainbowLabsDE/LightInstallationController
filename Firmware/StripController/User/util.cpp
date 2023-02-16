@@ -34,8 +34,15 @@ uint32_t millis() {
     return _millis;
 }
 
+const uint32_t divisionShift = 22;                        // maximum expected result is 1000, so 22 bit remain for the "divisor"
+const uint32_t divisionFactor = (1 << 22) / ticksPerUs;   // do micros() division by multiplying and shifting, result should be accurate to 0.001
 uint32_t micros() {
-    return (_millis * 1000) + (SysTick->CNT / ticksPerUs);
+    // retVal = millis / 1000 + SysTickCNT / ticksPerUs, but optimized
+    uint32_t retVal = -(_millis << 4) - (_millis << 3);
+    retVal += (_millis << 9);
+    retVal += (_millis << 9); // do += millis<<10 in two steps to avoid overflow
+    retVal += (SysTick->CNT * divisionFactor) >> divisionShift; // divide by ticksPerUs
+    return retVal;
 }
 
 void delay(uint32_t ms) {
