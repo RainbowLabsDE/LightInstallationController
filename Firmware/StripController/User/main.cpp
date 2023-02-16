@@ -120,3 +120,8 @@ int main(void) {
         }
     }
 }
+
+extern "C" {
+    void _fini(){}
+    void _init(){}
+}
