@@ -172,16 +172,7 @@
         }
       ],
       "track_widths": [
-        0.0,
-        0.0,
-        0.127,
-        0.1524,
-        0.2032,
-        0.254,
-        0.5,
-        1.0,
-        2.0,
-        2.5
+        0.0
       ],
       "via_dimensions": [
         {
@@ -414,7 +405,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "StripController.kicad_pro",
+    "filename": "CCController.kicad_pro",
     "version": 1
   },
   "net_settings": {
@@ -479,14 +470,6 @@
       "version": 1
     },
     "net_format_name": "",
-    "ngspice": {
-      "fix_include_paths": true,
-      "meta": {
-        "version": 0
-      },
-      "model_mode": 0,
-      "workbook_filename": ""
-    },
     "page_layout_descr_file": "",
     "plot_directory": "",
     "spice_current_sheet_as_root": false,
@@ -499,8 +482,32 @@
   },
   "sheets": [
     [
-      "29d0adb8-f386-4ee9-8ca9-b7e2684a1c89",
+      "8c160d88-ebc7-4504-a155-ddb371b01df5",
       ""
+    ],
+    [
+      "5952a2ca-2800-4188-bbd2-7057e130fa78",
+      "DCDC_CC"
+    ],
+    [
+      "671133f7-bed4-4dd0-afea-452bb3dd60bd",
+      "DCDC_CC1"
+    ],
+    [
+      "3dc3795f-aca7-44b3-825e-373391bd9c10",
+      "DCDC_CC2"
+    ],
+    [
+      "4643d6a4-d13a-45d4-a5a0-64ac2f393e46",
+      "DCDC_CC3"
+    ],
+    [
+      "14892eaf-ce5c-4e20-a4c1-df7980ef2791",
+      "DCDC_CC4"
+    ],
+    [
+      "0cc85571-1a77-4eda-94d0-8a2924f7e1ea",
+      "DCDCWandler"
     ]
   ],
   "text_variables": {}
