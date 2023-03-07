@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define RX_BUFFER_LEN   64
 
 class UART {
     public:
@@ -17,8 +18,8 @@ class UART {
     void initGpio();
     void initUart();
     void initDma();
-    uint8_t _uartRxBuf[64];
-    uint16_t _uartRxBufReadIdx = 0;
+    uint8_t _rxBuf[RX_BUFFER_LEN];
+    uint16_t _rxBufIdx = 0;
 };
 
-static UART uart1;
+extern UART uart1;
