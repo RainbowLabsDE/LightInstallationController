@@ -1,8 +1,11 @@
 #include "debug.h"
 #include "uart.h"
 #include "util.h"
+#include "config.h"
+#include "../../common/RBLB/rblb.h"
 
 vu8 val;
+config_t _config;
 
 // R  - T1CH1 - PC6
 // G  - T1CH2 - PC7
@@ -81,12 +84,17 @@ int main(void) {
 
     printf("SystemClk:%d\r\n", SystemCoreClock);
     printf("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
+    
     printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
+
+    RBLB rblb(getUID());
 
     while (1) {
         while (uart1.available()) {
-            printf("%c", uart1.read());
+            uint8_t c = uart1.read();
+            printf("%c", c);
             printf("%8ld %8ld\n", millis(), micros());
+            rblb.handleByte(c);
         }
     }
 }
