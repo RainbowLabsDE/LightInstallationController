@@ -11,6 +11,7 @@ class UART {
     int available();
     uint8_t read();
     size_t readBytes(uint8_t *buf, size_t size);
+    size_t sendBytes(const uint8_t *buf, size_t size);
 
     void _isrCallback();
 

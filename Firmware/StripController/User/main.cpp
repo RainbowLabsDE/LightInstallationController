@@ -75,6 +75,17 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
     TIM_Cmd(TIM1, ENABLE);
 }
 
+void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
+
+}
+
+void rs485Write(const uint8_t *buf, size_t size) {
+    // TODO: how to handle blocking?
+    // set DE
+    uart1.sendBytes(buf, size);
+    // clear DE
+}
+
 
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
@@ -87,7 +98,7 @@ int main(void) {
     
     printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
 
-    RBLB rblb(getUID());
+    RBLB rblb(getUID(), rs485Write, rblbPacketCallback, millis);
 
     while (1) {
         while (uart1.available()) {

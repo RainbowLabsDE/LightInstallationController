@@ -145,3 +145,7 @@ size_t UART::readBytes(uint8_t *buf, size_t size) {
 
     return size;
 }
+
+size_t UART::sendBytes(const uint8_t *buf, size_t size) {
+    // TODO
+}
