@@ -1,6 +1,8 @@
 #include "uart.h"
 #include "ch32v00x_conf.h"
 
+UART uart1;
+
 extern "C" {
 void USART1_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
 void DMA1_Channel5_IRQHandler() __attribute__((interrupt("WCH-Interrupt-fast")));
@@ -82,8 +84,8 @@ void UART::initDma() {
 
     DMA_DeInit(DMA1_Channel5);
     DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&USART1->DATAR);
-    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)_uartRxBuf;
-    DMA_InitStructure.DMA_BufferSize = sizeof(_uartRxBuf);
+    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)_rxBuf;
+    DMA_InitStructure.DMA_BufferSize = sizeof(_rxBuf);
     DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
     DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
     DMA_Init(DMA1_Channel5, &DMA_InitStructure);
@@ -114,9 +116,9 @@ void UART::init() {
 void UART::_isrCallback() {}
 
 int UART::available() {
-    uint16_t dmaSize = sizeof(_uartRxBuf);
+    uint16_t dmaSize = sizeof(_rxBuf);
     uint16_t dmaPos = dmaSize - DMA_GetCurrDataCounter(DMA1_Channel5); // DMA DataCounter counts backwards
-    int bytesToRead = dmaPos - _uartRxBufReadIdx;
+    int bytesToRead = dmaPos - _rxBufIdx;
     if (bytesToRead < 0) {
         bytesToRead += dmaSize;
     }
@@ -124,10 +126,26 @@ int UART::available() {
 }
 
 uint8_t UART::read() {
-    uint8_t val = _uartRxBuf[_uartRxBufReadIdx];
-    _uartRxBufReadIdx++;
-    if (_uartRxBufReadIdx >= sizeof(_uartRxBuf)) {
-        _uartRxBufReadIdx = 0;
+    uint8_t val = _rxBuf[_rxBufIdx];
+    _rxBufIdx++;
+    if (_rxBufIdx >= sizeof(_rxBuf)) {
+        _rxBufIdx = 0;
     }
     return val;
+}
+
+size_t UART::readBytes(uint8_t *buf, size_t size) {
+    if (size > available()) {
+        size = available();
+    }
+
+    for (int i = 0; i < size; i++) {
+        buf[i] = read();
+    }
+
+    return size;
+}
+
+size_t UART::sendBytes(const uint8_t *buf, size_t size) {
+    // TODO
 }

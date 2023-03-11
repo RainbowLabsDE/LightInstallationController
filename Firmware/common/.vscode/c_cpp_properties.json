@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "name": "CH32V",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/MounRiver/MounRiver_Studio/toolchain/RISC-V Embedded GCC/riscv-none-embed/include/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "windowsSdkVersion": "10.0.17763.0",
+            "compilerPath": "C:/MounRiver/MounRiver_Studio/toolchain/RISC-V Embedded GCC/bin/riscv-none-embed-gcc.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "${default}"
+        }
+    ],
+    "version": 4
+}
