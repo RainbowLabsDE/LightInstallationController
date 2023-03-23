@@ -14,6 +14,17 @@ config_t _config;
 // WW - T2CH2 - PD4
 // TX - PD5
 // RX - PD6
+// LED1 - PC1
+// LED2 - PC2
+// DE - PC4
+// RE - PC5 (active low)
+// VBUS - PC3 - A?? (wrong pin?)
+// TEMP - PD2 - A3
+
+#define PIN_LED1        GPIOC, GPIO_Pin_1
+#define PIN_LED2        GPIOC, GPIO_Pin_2
+#define PIN_RS485_DE    GPIOC, GPIO_Pin_4
+#define PIN_RS485_RE    GPIOC, GPIO_Pin_5
 
 /*********************************************************************
  * @fn      TIM1_OutCompare_Init
@@ -75,15 +86,53 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
     TIM_Cmd(TIM1, ENABLE);
 }
 
-void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
+void gpioInit() {
+    GPIO_InitTypeDef gpioInitStruct = {
+        .GPIO_Pin = GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_4 | GPIO_Pin_5,
+        .GPIO_Speed = GPIO_Speed_50MHz,
+        .GPIO_Mode = GPIO_Mode_Out_PP,
+    };
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+    GPIO_Init(GPIOC, &gpioInitStruct);
+    
+    // GPIO_WriteBit(PIN_RS485_DE, Bit_RESET);
+    GPIO_WriteBit(PIN_RS485_RE, Bit_SET);
+}
 
+void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
+    switch (header->cmd) {
+        case RBLB::SetParameters:
+            RBLB::cmd_param_t *paramCmd = (RBLB::cmd_param_t*)payload;
+            switch (paramCmd->paramId) {
+                case RBLB::NodeNum:
+                    _config.addressOffset = paramCmd->u16;
+                    break;
+                case RBLB::NumChannels:
+                    _config.numOutputs = paramCmd->u8;
+                    // reconfigure PWM outputs
+                    break;
+            }
+            // or reconfigure everything here, idk
+            break;
+    }
+}
+
+inline void rs485_de() {
+    GPIO_WriteBit(PIN_RS485_DE, Bit_SET);
+    GPIO_WriteBit(PIN_RS485_RE, Bit_RESET);
+}
+inline void rs485_re() {
+    GPIO_WriteBit(PIN_RS485_DE, Bit_RESET);
+    GPIO_WriteBit(PIN_RS485_RE, Bit_SET);
 }
 
 void rs485Write(const uint8_t *buf, size_t size) {
     // TODO: how to handle blocking?
     // set DE
+    rs485_de();
     uart1.sendBytes(buf, size);
     // clear DE
+    rs485_re();
 }
 
 
@@ -97,6 +146,11 @@ int main(void) {
     printf("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
     
     printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
+
+    // TODO: check if rest of options bytes are usable for non-volatile config (first 16 are already used or sth)
+    printf("Option Bytes:\n");
+    printHex((uint8_t *)OB_BASE, 64);
+
 
     RBLB rblb(getUID(), rs485Write, rblbPacketCallback, millis);
 

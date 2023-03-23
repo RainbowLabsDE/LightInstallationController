@@ -9,7 +9,7 @@ class RBLB {
 
     enum CMD : uint8_t {
         Data,               // data using previously configured values
-        DataSimple,         // data with simple protocol
+        DataSimple,         // data with simple protocol (TODO)
 
         DiscoveryInit = 16, // bring all nodes into discoverable state
         DiscoveryBurst,     // all addressed nodes answer
@@ -17,6 +17,7 @@ class RBLB {
 
         SetParameters = 32,       
         GetParameters,
+        GetStatus,          // Voltage / Temperature / uptime? / ???
     };
 
     enum ParamID : uint8_t {
@@ -45,7 +46,11 @@ class RBLB {
 
     typedef struct {
         uint8_t paramId;
-        void *value;
+        union {
+            uint8_t u8;
+            uint16_t u16;
+            uint32_t u32;
+        };
     } cmd_param_t;
     #pragma pack(pop)
 

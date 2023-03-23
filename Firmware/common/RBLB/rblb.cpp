@@ -63,12 +63,12 @@ void RBLB::handleByte(uint8_t byte) {
     }
     else {  // data packet
         // TODO: filter out data relevant for oneself and parse it according to the config
-
+        // save into buffer and only commit once datastream ends / crc/length correct for synchronization purposes
     }
 
 
     _curReadIdx++;
-    // save current time for timeout variable?
+    // TODO: save current time for timeout variable?
 }
 
 void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
@@ -83,6 +83,8 @@ void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
             break;
         case DiscoveryBurst:
             // TODO
+            // Send time staggered? One discovery burst reply takes roughly 130 us @ 1MBaud
+            // calculate timeslots based on baud rate, set maximum slots / delay, maybe 1ms? (~7 slots @ 1MBaud)
             break;
         case DiscoverySilence:
             _discovered = true;

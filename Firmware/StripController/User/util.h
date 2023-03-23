@@ -11,3 +11,5 @@ void delay(uint32_t ms);
 void delay_us(uint32_t us);
 
 uint64_t getUID();
+
+void printHex(uint8_t* buf, uint16_t size);
