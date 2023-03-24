@@ -3,13 +3,14 @@
 #include "util.h"
 #include "config.h"
 #include "../../common/RBLB/rblb.h"
+#include "adc.h"
 
 vu8 val;
 config_t _config;
 
-// R  - T1CH1 - PC6
-// G  - T1CH2 - PC7
-// B  - T1CH3 - PC0
+// R  - T1CH3 - PC0
+// G  - T1CH1 - PC6
+// B  - T1CH2 - PC7
 // W  - T1CH4 - PD3
 // WW - T2CH2 - PD4
 // TX - PD5
@@ -18,7 +19,7 @@ config_t _config;
 // LED2 - PC2
 // DE - PC4
 // RE - PC5 (active low)
-// VBUS - PC3 - A?? (wrong pin?)
+// VBUS - PC3 - A?? (wrong pin?) -> PA2 (A0)
 // TEMP - PD2 - A3
 
 #define PIN_LED1        GPIOC, GPIO_Pin_1
@@ -86,6 +87,14 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
     TIM_Cmd(TIM1, ENABLE);
 }
 
+void setPwmOutputs(uint16_t o1, uint16_t o2, uint16_t o3, uint16_t o4 = 0, uint16_t o5 = 0, uint16_t o6 = 0) {
+    TIM_SetCompare1(TIM1, o1);
+    TIM_SetCompare2(TIM1, o2);
+    TIM_SetCompare3(TIM1, o3);
+    TIM_SetCompare4(TIM1, o4);
+    // o5
+}
+
 void gpioInit() {
     GPIO_InitTypeDef gpioInitStruct = {
         .GPIO_Pin = GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_4 | GPIO_Pin_5,
@@ -141,6 +150,7 @@ int main(void) {
     SysTickInit();
     uart1.init();
     TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
+    setPwmOutputs((1 << 14)-1-(1 << 14)/100, (1 << 14)-1-(1 << 14)/2, (1 << 14)-1-(1 << 14)/1000, 1);
 
     printf("SystemClk:%d\r\n", SystemCoreClock);
     printf("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
@@ -151,8 +161,12 @@ int main(void) {
     printf("Option Bytes:\n");
     printHex((uint8_t *)OB_BASE, 64);
 
+    adcInit();
+
 
     RBLB rblb(getUID(), rs485Write, rblbPacketCallback, millis);
+
+    uint32_t lastPrint = 0;
 
     while (1) {
         while (uart1.available()) {
@@ -160,6 +174,11 @@ int main(void) {
             printf("%c", c);
             printf("%8ld %8ld\n", millis(), micros());
             rblb.handleByte(c);
+        }
+
+        if (millis() - lastPrint > 100) {
+            lastPrint = millis();
+            printf("ADC: %4d %4d\n", adcSampleBuf[0], adcSampleBuf[1]);
         }
     }
 }
