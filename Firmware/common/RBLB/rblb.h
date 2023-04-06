@@ -52,11 +52,21 @@ class RBLB {
             uint32_t u32;
         };
     } cmd_param_t;
+
+    typedef union {
+        struct {
+            uint16_t vBusAdc;
+            uint16_t tempAdc;
+            uint32_t uptimeMs;
+        } cmd_status_s;
+        uint8_t raw[sizeof(cmd_status_s)];
+    } cmd_status_t;
     #pragma pack(pop)
 
 
+    static const uint64_t ADDR_HOST = 0;
     static const uint64_t ADDR_BROADCAST = UINT64_MAX;
-
+    static const unsigned PACKET_TIMEOUT = 5;  // ms, after that time a incomplete packet is discarded
 
     RBLB(uint64_t ownUID,
         void (*txFunc)(const uint8_t *buf, size_t size),
@@ -65,6 +75,7 @@ class RBLB {
         );
 
     void handleByte(uint8_t byte);
+    size_t sendPacket(uint8_t cmd, uint64_t dstUid = 0, const uint8_t *payload = NULL, size_t payloadSize = 0);
     void idleLineReceived();
 
 
@@ -80,4 +91,5 @@ class RBLB {
     bool _idleLineReceived = false;
     uint8_t _packetBuf[32];     // buffer used for handling uid-based command packets
     uint16_t _curReadIdx = 0;
+    uint32_t _lastByteReceived = 0;
 };

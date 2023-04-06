@@ -15,7 +15,10 @@ RBLB::RBLB(uint64_t uid,
 }
 
 void RBLB::handleByte(uint8_t byte) {
-    // TODO: detect end of transmission (timeout?)
+    if (_getCurrentMillis() - _lastByteReceived >= PACKET_TIMEOUT) {
+        // discard previous packet if no new bytes arrived for some time
+        _curReadIdx = 0;
+    }
 
     if (_curReadIdx == 0) {
         if (byte >= DiscoveryInit) {    // uid command
@@ -33,25 +36,31 @@ void RBLB::handleByte(uint8_t byte) {
         if (_curReadIdx >= sizeof(uidCommHeader_t)) {
             // complete data read? (need to check this separately, otherwise data length is unknown)
             uidCommHeader_t *header = (uidCommHeader_t*)_packetBuf;
-            if (_curReadIdx >= sizeof(uidCommHeader_t) + header->len + 2) {
+            if (_curReadIdx >= (sizeof(uidCommHeader_t) + header->len + sizeof(uint16_t)) - 1) {
 
-
-                printf("Packet: ");
-                for (int i = 0; i <= _curReadIdx; i++) {
-                    printf("%02X ", _packetBuf[i]);
+                if (header->len > sizeof(_packetBuf)) {
+                    // can't handle oversized packet, don't do anything as of right now.
+                    _curReadIdx = 0;
+                    return;
                 }
-                printf("\n");
+
+
+                // printf("Packet: ");
+                // for (int i = 0; i <= _curReadIdx; i++) {
+                //     printf("%02X ", _packetBuf[i]);
+                // }
+                // printf("\n");
 
                 // check checksum
                 uint16_t crc = crc16(_packetBuf, sizeof(uidCommHeader_t) + header->len);
                 uint16_t packetCrc;
-                memcpy(&packetCrc, _packetBuf + sizeof(uidCommHeader_t) + header->len, 2);
+                memcpy(&packetCrc, _packetBuf + sizeof(uidCommHeader_t) + header->len, sizeof(uint16_t));
 
                 if (crc == packetCrc) {
                     handlePacketInternal(header, header->data);
                 }
                 else {
-                    printf("Wrong CRC\n");
+                    // printf("Wrong CRC\n");
                 }
 
 
@@ -68,11 +77,11 @@ void RBLB::handleByte(uint8_t byte) {
 
 
     _curReadIdx++;
-    // TODO: save current time for timeout variable?
+    _lastByteReceived = _getCurrentMillis();
 }
 
 void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
-    if (header->address != _uid || header->address != ADDR_BROADCAST) {
+    if (header->address != _uid && header->address != ADDR_BROADCAST) {
         // not addressed to me
         return;
     }
@@ -93,4 +102,22 @@ void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
             _packetCallback(header, payload);
             break;
     }
+}
+
+size_t RBLB::sendPacket(uint8_t cmd, uint64_t dstUid, const uint8_t *payload, size_t payloadSize) {
+    uint16_t packetSize = sizeof(uidCommHeader_t) + payloadSize + sizeof(uint16_t);     // header + payload + CRC
+    uint8_t buf[packetSize];
+    uidCommHeader_t *header = (uidCommHeader_t *)buf;
+
+    header->cmd = cmd;
+    header->address = dstUid;
+    header->len = payloadSize;
+    if (payload != NULL) {
+        memcpy(buf + sizeof(uidCommHeader_t), payload, payloadSize);    // copy payload to packet buffer
+    }
+    uint16_t crc = crc16(buf, sizeof(uidCommHeader_t) + payloadSize);   // calculate CRC and store at end of packet
+    memcpy(buf + sizeof(uidCommHeader_t) + payloadSize, &crc, sizeof(uint16_t));
+
+    _sendBytes(buf, packetSize);
+    return packetSize;
 }

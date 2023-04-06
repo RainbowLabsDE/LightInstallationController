@@ -88,9 +88,9 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
 }
 
 void setPwmOutputs(uint16_t o1, uint16_t o2, uint16_t o3, uint16_t o4 = 0, uint16_t o5 = 0, uint16_t o6 = 0) {
-    TIM_SetCompare1(TIM1, o1);
-    TIM_SetCompare2(TIM1, o2);
-    TIM_SetCompare3(TIM1, o3);
+    TIM_SetCompare3(TIM1, o1);
+    TIM_SetCompare1(TIM1, o2);
+    TIM_SetCompare2(TIM1, o3);
     TIM_SetCompare4(TIM1, o4);
     // o5
 }
@@ -108,9 +108,14 @@ void gpioInit() {
     GPIO_WriteBit(PIN_RS485_RE, Bit_SET);
 }
 
+RBLB *rblb;
+
+// temporary for fake RS485 test setup / no collision detection, TODO: remove
+int toIgnore = 0;
+
 void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
     switch (header->cmd) {
-        case RBLB::SetParameters:
+        case RBLB::SetParameters: {
             RBLB::cmd_param_t *paramCmd = (RBLB::cmd_param_t*)payload;
             switch (paramCmd->paramId) {
                 case RBLB::NodeNum:
@@ -122,6 +127,15 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
                     break;
             }
             // or reconfigure everything here, idk
+            break;
+        }
+        case RBLB::GetStatus:
+            RBLB::cmd_status_t pkt = { .cmd_status_s = {
+                .vBusAdc = adcSampleBuf[0],
+                .tempAdc = adcSampleBuf[1],
+                .uptimeMs = millis(),  
+            }};
+            toIgnore += rblb->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
             break;
     }
 }
@@ -150,7 +164,7 @@ int main(void) {
     SysTickInit();
     uart1.init();
     TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
-    setPwmOutputs((1 << 14)-1-(1 << 14)/100, (1 << 14)-1-(1 << 14)/2, (1 << 14)-1-(1 << 14)/1000, 1);
+    setPwmOutputs((1 << 14)/100, (1 << 14)/2, (1 << 14)/1000, 1);
 
     printf("SystemClk:%d\r\n", SystemCoreClock);
     printf("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
@@ -164,22 +178,27 @@ int main(void) {
     adcInit();
 
 
-    RBLB rblb(getUID(), rs485Write, rblbPacketCallback, millis);
+    RBLB rblbInstance(getUID(), rs485Write, rblbPacketCallback, millis);
+    rblb = &rblbInstance;
 
     uint32_t lastPrint = 0;
 
     while (1) {
         while (uart1.available()) {
             uint8_t c = uart1.read();
-            printf("%c", c);
-            printf("%8ld %8ld\n", millis(), micros());
-            rblb.handleByte(c);
+            // printf("%c", c);
+            // printf("%8ld %8ld\n", millis(), micros());
+            if (toIgnore) {
+                toIgnore--;
+                continue;
+            }
+            rblb->handleByte(c);
         }
 
-        if (millis() - lastPrint > 100) {
-            lastPrint = millis();
-            printf("ADC: %4d %4d\n", adcSampleBuf[0], adcSampleBuf[1]);
-        }
+        // if (millis() - lastPrint > 100) {
+        //     lastPrint = millis();
+        //     printf("ADC: %4d %4d\n", adcSampleBuf[0], adcSampleBuf[1]);
+        // }
     }
 }
 
