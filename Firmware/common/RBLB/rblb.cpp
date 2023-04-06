@@ -81,26 +81,42 @@ void RBLB::handleByte(uint8_t byte) {
 }
 
 void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
-    if (header->address != _uid && header->address != ADDR_BROADCAST) {
-        // not addressed to me
-        return;
-    }
+    if (_uid != ADDR_HOST) {    // Am node
+        if (header->address != _uid && header->address != ADDR_BROADCAST) {
+            // not addressed to me
+            return;
+        }
 
-    switch (header->cmd) {
-        case DiscoveryInit:
-            _discovered = false;
-            break;
-        case DiscoveryBurst:
-            // TODO
-            // Send time staggered? One discovery burst reply takes roughly 130 us @ 1MBaud
-            // calculate timeslots based on baud rate, set maximum slots / delay, maybe 1ms? (~7 slots @ 1MBaud)
-            break;
-        case DiscoverySilence:
-            _discovered = true;
-            break;
-        default:
-            _packetCallback(header, payload);
-            break;
+        switch (header->cmd) {
+            case DiscoveryInit:
+                _discovered = false;
+                break;
+            case DiscoveryBurst:
+                // TODO
+                // Send time staggered? One discovery burst reply takes roughly 130 us @ 1MBaud
+                // calculate timeslots based on baud rate, set maximum slots / delay, maybe 1ms? (~7 slots @ 1MBaud)
+                break;
+            case DiscoverySilence:
+                _discovered = true;
+                break;
+            default:
+                _packetCallback(header, payload);
+                break;
+        }
+    }
+    else {                      // Am host
+        // TODO: evaluate need to add a bit for packet direction or is direction always implied despite using address field for both src and dst?
+        // if (header->address != _uid) {
+        //     // not addressed to me
+        //     return;
+        // }
+
+        switch (header->cmd) {
+            // TODO: handle RBLB discovery internally
+            default:
+                _packetCallback(header, payload);
+                break;
+        }
     }
 }
 
