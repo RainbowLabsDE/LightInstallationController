@@ -34,7 +34,7 @@ class RBLB {
 
     #pragma pack(push, 1)
     typedef struct {
-        uint8_t cmd;
+        uint8_t cmd;            // highest bit set indicates response from node
         uint64_t address;       // in single-master mode, it contains both destination and source address, depending on direction
         uint16_t len;           // length of data (excluding header and checksum)
         uint8_t data[];
@@ -111,9 +111,7 @@ class RBLB {
         DiscoveryIdle,
         DiscoveryWaitingForResponse,
         DiscoveryWaitingForSilenceACK,
-        DiscoveryWaitingForSilenceACKFailed,
         DiscoveryGotValidUID,
-        DiscoveryCheckRangeAgain
     } discoveryState_t;
 
     discoveryState_t discoveryState = DiscoveryIdle;

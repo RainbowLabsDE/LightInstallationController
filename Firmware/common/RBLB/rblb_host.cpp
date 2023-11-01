@@ -27,9 +27,10 @@ int RBLB_Host::discoverNext() {
     discovery_step_t curStep = discoveryStack[discoveryStackIdx - 1];   // get next step (pop below, only when required)
 
     uint64_t levelMask = 0x8000'0000'0000'0000 >> curStep.level;    // calculate bit mask for current level of binary tree
-    uint64_t addrMin = curStep.baseAddr + curStep.upperHalf ? levelMask : 0;
+    uint64_t addrMin = curStep.baseAddr + (curStep.upperHalf ? levelMask : 0);
     uint64_t addrMax = addrMin + (levelMask - 1);
 
+    // printf("\n[DSC] State: %d, StackIdx: %2d, Level: %2d, Addr: %16llX-%16llX  ", discoveryState, discoveryStackIdx, curStep.level, addrMin, addrMax);
 
     switch (discoveryState) {
         case DiscoveryIdle: {

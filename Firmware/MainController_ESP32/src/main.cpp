@@ -3,11 +3,13 @@
 
 const unsigned PIN_TX = 26;
 const unsigned PIN_RX = 18;
+const unsigned PIN_RS485_DE = 33;
+
 
 const unsigned discoveredUidsSize = 128;
 uint64_t discoveredUids[discoveredUidsSize];
-const size_t numMockNodes = 2;
-RBLB *mockNodes[numMockNodes];
+// const size_t numMockNodes = 2;
+// RBLB *mockNodes[numMockNodes];
 
 // const size_t mockSerialBufSize = 128;
 // char mockSerialBuf[mockSerialBufSize];
@@ -15,11 +17,11 @@ RBLB *mockNodes[numMockNodes];
 
 
 void rs485Write(const uint8_t *buf, size_t size) {
-    // digitalWrite(PIN_RS485_DE, HIGH);
+    digitalWrite(PIN_RS485_DE, HIGH);
     Serial1.write(buf, size);
     Serial1.flush();
     // delayMicroseconds(15000000 / rs485.baud());   // delay needed, otherwise last byte is cut off and flush() doesn't do enough
-    // digitalWrite(PIN_RS485_DE, LOW);
+    digitalWrite(PIN_RS485_DE, LOW);
 
     // printf("\n[H] > ");
     // for (int i = 0; i < size; i++) {
@@ -52,15 +54,15 @@ void mockWrite(const uint8_t *buf, size_t size, uint64_t id) {
     // printf("\n");
     rs485Write(buf, size);
 }
-void mockWrite1(const uint8_t *buf, size_t size) { mockWrite(buf, size, 0x8851BC48203C0001); };
-void mockWrite2(const uint8_t *buf, size_t size) { mockWrite(buf, size, 0x8851BC48203C0002); };
-void mockWriteH(const uint8_t *buf, size_t size) { mockWrite(buf, size, 0); };
-RBLB_Host rblb(0, mockWriteH, incomingPacket, (uint32_t (*)())millis);
+// void mockWrite1(const uint8_t *buf, size_t size) { mockWrite(buf, size, 0x8851BC48203C0001); };
+// void mockWrite2(const uint8_t *buf, size_t size) { mockWrite(buf, size, 0x8851BC48203C0002); };
+// void mockWriteH(const uint8_t *buf, size_t size) { mockWrite(buf, size, 0); };
+RBLB_Host rblb(0, rs485Write, incomingPacket, (uint32_t (*)())millis);
 size_t bytesToIgnore = 0;
 
 void setup() {
-    mockNodes[0] = new RBLB(0x8851BC48203C0001, mockWrite1, incomingPacket, (uint32_t (*)())millis);
-    mockNodes[1] = new RBLB(0x8851BC48203C0002, mockWrite2, incomingPacket, (uint32_t (*)())millis);
+    // mockNodes[0] = new RBLB(0x8851BC48203C0001, mockWrite1, incomingPacket, (uint32_t (*)())millis);
+    // mockNodes[1] = new RBLB(0x8851BC48203C0002, mockWrite2, incomingPacket, (uint32_t (*)())millis);
 
     delay(250);
     Serial1.begin(1000000, SERIAL_8N1, PIN_RX, PIN_TX);
@@ -91,9 +93,9 @@ void loop() {
             continue;
         }
         rblb.handleByte(c);
-        for (int m = 0; m < 2; m++) {
-            mockNodes[m]->handleByte(c);
-        }
+        // for (int m = 0; m < numMockNodes; m++) {
+        //     mockNodes[m]->handleByte(c);
+        // }
     }
 
     // if (millis() - lastPacketSent > 1000) {

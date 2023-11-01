@@ -141,6 +141,7 @@ void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
                 // TODO: for time staggered replies, need to wait for a bit / need other logic
                 sendPacket(DiscoverySilence, header->address);  // try to silence node
                 discoveryState = DiscoveryWaitingForSilenceACK;
+                // printf("\n[DSC] State: %d", discoveryState);
                 break;
             case DiscoverySilence|Response:  // received discovery silence ACK from node (indicating correct address was indeed discovered)
                 if (header->address == ADDR_BROADCAST) {
@@ -151,6 +152,7 @@ void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
                         _discoveredUids[discoveredUidsNum++] = header->address;
                     }
                     discoveryState = DiscoveryGotValidUID;
+                    // printf("\n[DSC] State: %d", discoveryState);
                 // }
                 // else {
                     // also indicates collision, I guess
