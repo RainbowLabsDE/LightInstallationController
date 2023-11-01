@@ -104,8 +104,10 @@ void gpioInit() {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
     GPIO_Init(GPIOC, &gpioInitStruct);
     
-    // GPIO_WriteBit(PIN_RS485_DE, Bit_RESET);
-    GPIO_WriteBit(PIN_RS485_RE, Bit_SET);
+    GPIO_WriteBit(PIN_LED1, Bit_SET);       // turn off LED
+    GPIO_WriteBit(PIN_LED2, Bit_SET);       // turn off LED
+    GPIO_WriteBit(PIN_RS485_DE, Bit_RESET); // disable send
+    GPIO_WriteBit(PIN_RS485_RE, Bit_RESET); // enable receive (active low)
 }
 
 RBLB *rblb;
@@ -142,11 +144,11 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
 
 inline void rs485_de() {
     GPIO_WriteBit(PIN_RS485_DE, Bit_SET);
-    GPIO_WriteBit(PIN_RS485_RE, Bit_RESET);
+    GPIO_WriteBit(PIN_RS485_RE, Bit_SET);
 }
 inline void rs485_re() {
     GPIO_WriteBit(PIN_RS485_DE, Bit_RESET);
-    GPIO_WriteBit(PIN_RS485_RE, Bit_SET);
+    GPIO_WriteBit(PIN_RS485_RE, Bit_RESET);
 }
 
 void rs485Write(const uint8_t *buf, size_t size) {
@@ -154,6 +156,7 @@ void rs485Write(const uint8_t *buf, size_t size) {
     // set DE
     rs485_de();
     uart1.sendBytes(buf, size);
+    while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);    // wait for transfer complete, TODO: make function in UART class
     // clear DE
     rs485_re();
 }
@@ -162,6 +165,7 @@ void rs485Write(const uint8_t *buf, size_t size) {
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     SysTickInit();
+    gpioInit();
     uart1.init();
     TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
     setPwmOutputs((1 << 14)/100, (1 << 14)/2, (1 << 14)/1000, 1);
@@ -188,12 +192,17 @@ int main(void) {
             uint8_t c = uart1.read();
             // printf("%c", c);
             // printf("%8ld %8ld\n", millis(), micros());
-            if (toIgnore) {
-                toIgnore--;
-                continue;
-            }
+            // if (toIgnore) {
+            //     toIgnore--;
+            //     continue;
+            // }
             rblb->handleByte(c);
         }
+
+        // GPIO_WriteBit(PIN_LED1, Bit_SET);
+        // delay(100);
+        // GPIO_WriteBit(PIN_LED1, Bit_RESET);
+        // delay(100);
 
         // if (millis() - lastPrint > 100) {
         //     lastPrint = millis();
