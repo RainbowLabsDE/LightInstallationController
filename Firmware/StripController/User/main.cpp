@@ -6,7 +6,7 @@
 #include "adc.h"
 
 vu8 val;
-config_t _config;
+Config config;
 
 // R  - T1CH3 - PC0
 // G  - T1CH1 - PC6
@@ -119,13 +119,14 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
     switch (header->cmd) {
         case RBLB::SetParameters: {
             RBLB::cmd_param_t *paramCmd = (RBLB::cmd_param_t*)payload;
+            
             switch (paramCmd->paramId) {
                 case RBLB::NodeNum:
-                    _config.addressOffset = paramCmd->u16;
+                    config._config.addressOffset = paramCmd->u16;
                     break;
                 case RBLB::NumChannels:
-                    _config.numOutputs = paramCmd->u8;
-                    // reconfigure PWM outputs
+                    config._config.numOutputs = paramCmd->u8;
+                    // TODO: reconfigure PWM outputs
                     break;
             }
             // or reconfigure everything here, idk
@@ -137,7 +138,7 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
                 .tempAdc = adcSampleBuf[1],
                 .uptimeMs = millis(),  
             }};
-            toIgnore += rblb->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
+            /*toIgnore +=*/ rblb->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
             break;
     }
 }
@@ -156,10 +157,47 @@ void rs485Write(const uint8_t *buf, size_t size) {
     // set DE
     rs485_de();
     uart1.sendBytes(buf, size);
-    while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);    // wait for transfer complete, TODO: make function in UART class
     // clear DE
     rs485_re();
 }
+
+
+// #define FLASH_KEY1                 ((uint32_t)0x45670123)
+// #define FLASH_KEY2                 ((uint32_t)0xCDEF89AB)
+// #define ProgramTimeout             ((uint32_t)0x00002000)
+// #define CR_OPTPG_Set               ((uint32_t)0x00000010)
+// #define CR_OPTPG_Reset             ((uint32_t)0xFFFFFFEF)
+// FLASH_Status OptionBytesTest()
+// {
+//     FLASH_Status status = FLASH_COMPLETE;
+//     status = FLASH_WaitForLastOperation(ProgramTimeout);
+//     if(status == FLASH_COMPLETE)
+//     {
+//         FLASH->OBKEYR = FLASH_KEY1;
+//         FLASH->OBKEYR = FLASH_KEY2;
+//         FLASH->CTLR |= CR_OPTPG_Set;
+//         for (int i = 0; i < 24; i++) {
+//             *(__IO uint16_t *)(OB_BASE + 16 + i*2) = i;
+//             status = FLASH_WaitForLastOperation(ProgramTimeout);
+//         }
+//         if(status != FLASH_TIMEOUT)
+//         {
+//             FLASH->CTLR &= CR_OPTPG_Reset;
+//         }
+//     }
+
+//     return status;
+// }
+
+// void Option_Byte_CFG(void)
+// {
+//     FLASH_Unlock();
+//     FLASH_EraseOptionBytes();
+//     FLASH_UserOptionByteConfig(OB_IWDG_SW, OB_STOP_NoRST, OB_STDBY_NoRST, OB_RST_EN_DT12ms);
+//     // FLASH_ProgramOptionByteData(OB_BASE + 16, 0x42);
+//     // OptionBytesTest();
+//     FLASH_Lock();
+// }
 
 
 int main(void) {
@@ -175,7 +213,22 @@ int main(void) {
     
     printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
 
-    // TODO: check if rest of options bytes are usable for non-volatile config (first 16 are already used or sth)
+    printf("Option Bytes:\n");
+    printHex((uint8_t *)OB_BASE, 64);
+
+    // Option_Byte_CFG();
+    config.load();
+
+
+    // OptionBytesTest();
+    
+
+
+    // int status = FLASH_ProgramOptionByteData(OB_BASE + 4, 0x40);
+    // printf("Status: %d\n", status);
+    // status = FLASH_ProgramOptionByteData(OB_BASE + 6, 0x100 - 0x40);
+    // printf("Status: %d\n", status);
+
     printf("Option Bytes:\n");
     printHex((uint8_t *)OB_BASE, 64);
 

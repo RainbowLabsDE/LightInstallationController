@@ -1,5 +1,7 @@
 #include "util.h"
 
+#include <string.h>
+
 #define SysTick_CTLR_STE    (1 << 0)    // counter enable
 #define SysTick_CTLR_STIE   (1 << 1)    // interrupt enable
 #define SysTick_CTLR_STRE   (1 << 3)    // auto-reload enable
@@ -93,4 +95,95 @@ void printHex(uint8_t* buf, uint16_t size) {
 		}
 	}
 	printf("\n");
+}
+
+
+const uint32_t ProgramTimeout = 0x00002000;
+const uint32_t FLASH_KEY1 =     0x45670123;
+const uint32_t FLASH_KEY2 =     0xCDEF89AB;
+const uint32_t FLASH_CTLR_OBG = 1 << 4;     // Perform user-selected word programming 
+const size_t   SYSTEM_OB_NUM =  8;          // Number of system option bytes (byte + inverse byte)
+
+int flashOBWrite(uint8_t *data, size_t size) {
+    if (size >= 24) {
+        return -1;  // too long to fit into OB area
+    }
+
+    FLASH_Status status = FLASH_COMPLETE;
+    uint16_t prevOB[SYSTEM_OB_NUM] = {0};
+    memcpy(prevOB, OB, sizeof(prevOB));
+    printHex((uint8_t*)prevOB, sizeof(prevOB));
+    
+    FLASH_Unlock();
+    FLASH_EraseOptionBytes();
+    status = FLASH_WaitForLastOperation(ProgramTimeout);
+    if (status == FLASH_COMPLETE)
+    {
+        // unlock 
+        FLASH->OBKEYR = FLASH_KEY1;     // unlock option byte flash area
+        FLASH->OBKEYR = FLASH_KEY2;
+        FLASH->CTLR |= FLASH_CTLR_OBG;  // set option byte programming mode
+
+        status = FLASH_WaitForLastOperation(ProgramTimeout);
+        if (status != FLASH_COMPLETE) {
+            return -3;
+        }
+
+
+        // Restore previous system option byte content
+        for (size_t i = 0; i < SYSTEM_OB_NUM; i++) {
+            *((__IO uint16_t*)(OB_BASE + i*2)) = prevOB[i] & 0xFF;
+            status = FLASH_WaitForLastOperation(ProgramTimeout);
+            if (status != FLASH_COMPLETE) {
+                if (status != FLASH_TIMEOUT) {
+                    FLASH->CTLR &= ~FLASH_CTLR_OBG; // turn off option byte programming mode
+                }
+                FLASH_Lock();
+                return -2;
+            }
+        }
+
+        const int obOffset = SYSTEM_OB_NUM * sizeof(uint16_t);    // custom option bytes offset
+        for (size_t i = 0; i < size; i++) {
+            *((__IO uint16_t*)(OB_BASE + obOffset + i*2)) = data[i];
+
+            status = FLASH_WaitForLastOperation(ProgramTimeout);
+            if (status != FLASH_COMPLETE) {
+                if (status != FLASH_TIMEOUT) {
+                    FLASH->CTLR &= ~FLASH_CTLR_OBG; // turn off option byte programming mode
+                }
+                FLASH_Lock();
+                return -2;
+            }
+        }
+
+        if (status != FLASH_TIMEOUT) {
+            FLASH->CTLR &= ~FLASH_CTLR_OBG; // turn off option byte programming mode
+        }
+    }
+
+    FLASH_Lock();
+
+    return 0;
+}
+
+int flashOBRead(uint8_t *dst, size_t size) {
+    if (size > 24) {
+        return -1;  // too long
+    }
+
+    uint8_t buf[size];
+    
+    for (int i = 0; i < size; i++) {
+        uint16_t bytePair = ((uint16_t*)OB_BASE)[SYSTEM_OB_NUM + i];
+        if (((bytePair & 0xFF) ^ (bytePair >> 8)) == 0xFF) {  // check that the inverse "checksum" is correct
+            buf[i] = bytePair & 0xFF;
+        }
+        else {
+            return -2;  // byte pair "checksum" missmatch
+        }
+    }
+
+    memcpy(dst, buf, size);
+    return 0;
 }
