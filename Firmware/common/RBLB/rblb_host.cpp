@@ -1,4 +1,6 @@
-#include "rblb.h"
+#if !defined CH32V003   // disable Host functionality for client MCU, TODO: handle more elegantly
+
+#include "rblb_host.h"
 #include "../CRC/crc.h"
 
 #include <stdio.h>
@@ -110,3 +112,5 @@ int RBLB_Host::discoverNext() {
         return -1;
     }
 }
+
+#endif

@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "../../common/RBLB/rblb.h"
+#include "../../common/RBLB/rblb_host.h"
 
 const unsigned PIN_TX = 26;
 const unsigned PIN_RX = 18;
