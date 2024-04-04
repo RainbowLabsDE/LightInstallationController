@@ -162,77 +162,21 @@ void rs485Write(const uint8_t *buf, size_t size) {
 }
 
 
-// #define FLASH_KEY1                 ((uint32_t)0x45670123)
-// #define FLASH_KEY2                 ((uint32_t)0xCDEF89AB)
-// #define ProgramTimeout             ((uint32_t)0x00002000)
-// #define CR_OPTPG_Set               ((uint32_t)0x00000010)
-// #define CR_OPTPG_Reset             ((uint32_t)0xFFFFFFEF)
-// FLASH_Status OptionBytesTest()
-// {
-//     FLASH_Status status = FLASH_COMPLETE;
-//     status = FLASH_WaitForLastOperation(ProgramTimeout);
-//     if(status == FLASH_COMPLETE)
-//     {
-//         FLASH->OBKEYR = FLASH_KEY1;
-//         FLASH->OBKEYR = FLASH_KEY2;
-//         FLASH->CTLR |= CR_OPTPG_Set;
-//         for (int i = 0; i < 24; i++) {
-//             *(__IO uint16_t *)(OB_BASE + 16 + i*2) = i;
-//             status = FLASH_WaitForLastOperation(ProgramTimeout);
-//         }
-//         if(status != FLASH_TIMEOUT)
-//         {
-//             FLASH->CTLR &= CR_OPTPG_Reset;
-//         }
-//     }
-
-//     return status;
-// }
-
-// void Option_Byte_CFG(void)
-// {
-//     FLASH_Unlock();
-//     FLASH_EraseOptionBytes();
-//     FLASH_UserOptionByteConfig(OB_IWDG_SW, OB_STOP_NoRST, OB_STDBY_NoRST, OB_RST_EN_DT12ms);
-//     // FLASH_ProgramOptionByteData(OB_BASE + 16, 0x42);
-//     // OptionBytesTest();
-//     FLASH_Lock();
-// }
-
-
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     SysTickInit();
     gpioInit();
     uart1.init();
+
+    printfd("SystemClk:%d\r\n", SystemCoreClock);
+    printfd("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
+    
+    printfd("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
+
     TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
     setPwmOutputs((1 << 14)/100, (1 << 14)/2, (1 << 14)/1000, 1);
-
-    printf("SystemClk:%d\r\n", SystemCoreClock);
-    printf("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
-    
-    printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
-
-    printf("Option Bytes:\n");
-    printHex((uint8_t *)OB_BASE, 64);
-
-    // Option_Byte_CFG();
-    config.load();
-
-
-    // OptionBytesTest();
-    
-
-
-    // int status = FLASH_ProgramOptionByteData(OB_BASE + 4, 0x40);
-    // printf("Status: %d\n", status);
-    // status = FLASH_ProgramOptionByteData(OB_BASE + 6, 0x100 - 0x40);
-    // printf("Status: %d\n", status);
-
-    printf("Option Bytes:\n");
-    printHex((uint8_t *)OB_BASE, 64);
-
     adcInit();
+    config.load();
 
 
     RBLB rblbInstance(getUID(), rs485Write, rblbPacketCallback, millis);
@@ -243,8 +187,8 @@ int main(void) {
     while (1) {
         while (uart1.available()) {
             uint8_t c = uart1.read();
-            // printf("%c", c);
-            // printf("%8ld %8ld\n", millis(), micros());
+            // printfd("%c", c);
+            // printfd("%8ld %8ld\n", millis(), micros());
             // if (toIgnore) {
             //     toIgnore--;
             //     continue;
@@ -259,7 +203,7 @@ int main(void) {
 
         // if (millis() - lastPrint > 100) {
         //     lastPrint = millis();
-        //     printf("ADC: %4d %4d\n", adcSampleBuf[0], adcSampleBuf[1]);
+        //     printfd("ADC: %4d %4d\n", adcSampleBuf[0], adcSampleBuf[1]);
         // }
     }
 }

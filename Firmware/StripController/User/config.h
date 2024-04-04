@@ -28,7 +28,7 @@ class Config {
             _config.crc = crc16((uint8_t*)&_config, sizeof(config_t) - sizeof(config_t::crc));  // calculate CRC
             int status = flashOBWrite((uint8_t*)&_config, sizeof(config_t));                    // write to flash
             if (status < 0) {
-                printf("[CFG] Error during flash write: %d\n", status);
+                printfd("[CFG] Error during flash write: %d\n", status);
             }
         }
         
@@ -41,7 +41,7 @@ class Config {
             memcpy(&_config, &storedCfg, sizeof(config_t));
         }
         else {  // data corrupt / empty, load defaults
-            printf("[CFG] Config corrupt or version mismatch. Loading defaults!\n");
+            printfd("[CFG] Config corrupt or version mismatch. Loading defaults!\n");
             memcpy(&_config, &defaultData, sizeof(config_t));
             save();
         }
