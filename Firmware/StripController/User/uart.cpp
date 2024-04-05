@@ -44,7 +44,7 @@ void UART::initUart() {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
 
     USART_InitTypeDef USART_InitStructure = {0};
-    USART_InitStructure.USART_BaudRate = 115200;
+    USART_InitStructure.USART_BaudRate = 1000000;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -147,5 +147,10 @@ size_t UART::readBytes(uint8_t *buf, size_t size) {
 }
 
 size_t UART::sendBytes(const uint8_t *buf, size_t size) {
-    // TODO
+    // For now, just do it blockingly, TODO: make faster?
+    for (volatile int i = 0; i < size; i++) {
+        while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
+        USART_SendData(USART1, buf[i]);
+    }
+    return size;
 }

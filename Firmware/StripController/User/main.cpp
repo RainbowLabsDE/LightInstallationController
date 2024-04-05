@@ -3,17 +3,29 @@
 #include "util.h"
 #include "config.h"
 #include "../../common/RBLB/rblb.h"
+#include "adc.h"
 
 vu8 val;
-config_t _config;
+Config config;
 
-// R  - T1CH1 - PC6
-// G  - T1CH2 - PC7
-// B  - T1CH3 - PC0
+// R  - T1CH3 - PC0
+// G  - T1CH1 - PC6
+// B  - T1CH2 - PC7
 // W  - T1CH4 - PD3
 // WW - T2CH2 - PD4
 // TX - PD5
 // RX - PD6
+// LED1 - PC1
+// LED2 - PC2
+// DE - PC4
+// RE - PC5 (active low)
+// VBUS - PC3 - A?? (wrong pin?) -> PA2 (A0)
+// TEMP - PD2 - A3
+
+#define PIN_LED1        GPIOC, GPIO_Pin_1
+#define PIN_LED2        GPIOC, GPIO_Pin_2
+#define PIN_RS485_DE    GPIOC, GPIO_Pin_4
+#define PIN_RS485_RE    GPIOC, GPIO_Pin_5
 
 /*********************************************************************
  * @fn      TIM1_OutCompare_Init
@@ -75,38 +87,124 @@ void TIM1_PWMOut_Init(u16 arr, u16 psc, u16 ccp) {
     TIM_Cmd(TIM1, ENABLE);
 }
 
-void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
+void setPwmOutputs(uint16_t o1, uint16_t o2, uint16_t o3, uint16_t o4 = 0, uint16_t o5 = 0, uint16_t o6 = 0) {
+    TIM_SetCompare3(TIM1, o1);
+    TIM_SetCompare1(TIM1, o2);
+    TIM_SetCompare2(TIM1, o3);
+    TIM_SetCompare4(TIM1, o4);
+    // o5
+}
 
+void gpioInit() {
+    GPIO_InitTypeDef gpioInitStruct = {
+        .GPIO_Pin = GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_4 | GPIO_Pin_5,
+        .GPIO_Speed = GPIO_Speed_50MHz,
+        .GPIO_Mode = GPIO_Mode_Out_PP,
+    };
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+    GPIO_Init(GPIOC, &gpioInitStruct);
+    
+    GPIO_WriteBit(PIN_LED1, Bit_SET);       // turn off LED
+    GPIO_WriteBit(PIN_LED2, Bit_SET);       // turn off LED
+    GPIO_WriteBit(PIN_RS485_DE, Bit_RESET); // disable send
+    GPIO_WriteBit(PIN_RS485_RE, Bit_RESET); // enable receive (active low)
+}
+
+RBLB *rblb;
+
+// temporary for fake RS485 test setup / no collision detection, TODO: remove
+int toIgnore = 0;
+
+void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
+    switch (header->cmd) {
+        case RBLB::SetParameters: {
+            RBLB::cmd_param_t *paramCmd = (RBLB::cmd_param_t*)payload;
+            
+            switch (paramCmd->paramId) {
+                case RBLB::NodeNum:
+                    config._config.addressOffset = paramCmd->u16;
+                    break;
+                case RBLB::NumChannels:
+                    config._config.numOutputs = paramCmd->u8;
+                    // TODO: reconfigure PWM outputs
+                    break;
+            }
+            // or reconfigure everything here, idk
+            break;
+        }
+        case RBLB::GetStatus:
+            RBLB::cmd_status_t pkt = { .cmd_status_s = {
+                .vBusAdc = adcSampleBuf[0],
+                .tempAdc = adcSampleBuf[1],
+                .uptimeMs = millis(),  
+            }};
+            /*toIgnore +=*/ rblb->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
+            break;
+    }
+}
+
+inline void rs485_de() {
+    GPIO_WriteBit(PIN_RS485_DE, Bit_SET);
+    GPIO_WriteBit(PIN_RS485_RE, Bit_SET);
+}
+inline void rs485_re() {
+    GPIO_WriteBit(PIN_RS485_DE, Bit_RESET);
+    GPIO_WriteBit(PIN_RS485_RE, Bit_RESET);
 }
 
 void rs485Write(const uint8_t *buf, size_t size) {
     // TODO: how to handle blocking?
     // set DE
+    rs485_de();
     uart1.sendBytes(buf, size);
     // clear DE
+    rs485_re();
 }
 
 
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     SysTickInit();
+    gpioInit();
     uart1.init();
-    TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
 
-    printf("SystemClk:%d\r\n", SystemCoreClock);
-    printf("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
+    printfd("SystemClk:%d\r\n", SystemCoreClock);
+    printfd("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
     
-    printf("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
+    printfd("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
 
-    RBLB rblb(getUID(), rs485Write, rblbPacketCallback, millis);
+    TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
+    setPwmOutputs((1 << 14)/100, (1 << 14)/2, (1 << 14)/1000, 1);
+    adcInit();
+    config.load();
+
+
+    RBLB rblbInstance(getUID(), rs485Write, rblbPacketCallback, millis);
+    rblb = &rblbInstance;
+
+    uint32_t lastPrint = 0;
 
     while (1) {
         while (uart1.available()) {
             uint8_t c = uart1.read();
-            printf("%c", c);
-            printf("%8ld %8ld\n", millis(), micros());
-            rblb.handleByte(c);
+            // printfd("%c", c);
+            // printfd("%8ld %8ld\n", millis(), micros());
+            // if (toIgnore) {
+            //     toIgnore--;
+            //     continue;
+            // }
+            rblb->handleByte(c);
         }
+
+        // GPIO_WriteBit(PIN_LED1, Bit_SET);
+        // delay(100);
+        // GPIO_WriteBit(PIN_LED1, Bit_RESET);
+        // delay(100);
+
+        // if (millis() - lastPrint > 100) {
+        //     lastPrint = millis();
+        //     printfd("ADC: %4d %4d\n", adcSampleBuf[0], adcSampleBuf[1]);
+        // }
     }
 }
 
