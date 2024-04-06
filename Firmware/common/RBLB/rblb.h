@@ -24,7 +24,7 @@ class RBLB {
 
     enum ParamID : uint8_t {
         NodeNum,            // 16 bit node number
-        NumChannels,        // 3 - 6
+        NumChannels,        // 1 - 6
         BitsPerColor_PWM,   // 8 - 16
         BitsPerColor_Data,  // 8/16 
         GlobalBrightness,   // 0 - 255
@@ -43,8 +43,11 @@ class RBLB {
 
     typedef struct {
         uint8_t cmd;
+        // uint16_t len;           // length of data (excluding header and checksum)
+        // uint8_t chkSum;         // checksum, summed payload bytes
+        // uint8_t chkXor;         // checksum, xored payload bytes
         uint8_t data[];
-    } basicCommHeader_t;
+    } simpleCommHeader_t;
 
     // Command Payloads
 
@@ -78,11 +81,15 @@ class RBLB {
     static const unsigned PACKET_TIMEOUT = 5;  // ms, after that time a incomplete packet is discarded
     static const unsigned DISCOVERY_TIMEOUT = 2;  // ms (is actually 1-2ms because of timing. TODO: maybe switch to micros()?)
 
-    RBLB(uint64_t ownUID,
+    RBLB(
         void (*txFunc)(const uint8_t *buf, size_t size),
-        void (*packetCallback)(uidCommHeader_t *header, uint8_t *payload),
-        uint32_t (*getCurrentMillis)()
-        );
+        void (*packetCallback)(uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst),
+        uint32_t (*getCurrentMillis)(),
+        uint8_t *dataBuf = nullptr,
+        const size_t dataBufSize = 0
+        ) : _sendBytes(txFunc), _packetCallback(packetCallback), _getCurrentMillis(getCurrentMillis), _dataBuf(dataBuf), _dataBufSize(dataBufSize) { }
+
+    void setUid(uint64_t ownUID) { _uid = ownUID; }
 
     void handleByte(uint8_t byte);
     size_t sendPacket(uint8_t cmd, uint64_t dstUid = 0, const uint8_t *payload = NULL, size_t payloadSize = 0);
@@ -93,7 +100,7 @@ class RBLB {
     void handlePacketInternal(uidCommHeader_t *header, uint8_t *payload);
 
     void (*_sendBytes)(const uint8_t *buf, size_t size);
-    void (*_packetCallback)(uidCommHeader_t *header, uint8_t *payload);
+    void (*_packetCallback)(uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst);
     uint32_t (*_getCurrentMillis)();
 
     // Node
@@ -104,6 +111,10 @@ class RBLB {
     uint8_t _packetBuf[32];     // buffer used for handling uid-based command packets
     uint16_t _curReadIdx = 0;
     uint32_t _lastByteReceived = 0;
+
+    // buffer for storing received LED data frame
+    uint8_t* _dataBuf;
+    const size_t _dataBufSize;
 
     // Host (TODO: leave out from node instance somehow. Inheritance / Templating?)
     bool _lastCrcCorrect = false;

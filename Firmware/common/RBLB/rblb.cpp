@@ -4,16 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-RBLB::RBLB(uint64_t uid,
-        void (*txFunc)(const uint8_t *buf, size_t size),
-        void (*packetCallback)(uidCommHeader_t *header, uint8_t *payload),
-        uint32_t (*getCurrentMillis)()) {
-    _uid = uid;
-    _sendBytes = txFunc;
-    _packetCallback = packetCallback;
-    _getCurrentMillis = getCurrentMillis;
-}
-
 void RBLB::handleByte(uint8_t byte) {
     if (_getCurrentMillis() - _lastByteReceived >= PACKET_TIMEOUT) {
         // discard previous packet if no new bytes arrived for some time
@@ -122,7 +112,7 @@ void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
                 // ignore own / duplicate messages
             break;
             default:
-                _packetCallback(header, payload);
+                _packetCallback(header, payload, this);
                 break;
         }
     }
@@ -169,7 +159,7 @@ void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
                 // ignore own / duplicate messages
             break;
             default:
-                _packetCallback(header, payload);
+                _packetCallback(header, payload, this);
                 break;
         }
     }

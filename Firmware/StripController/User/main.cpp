@@ -27,6 +27,8 @@ Config config;
 #define PIN_RS485_DE    GPIOC, GPIO_Pin_4
 #define PIN_RS485_RE    GPIOC, GPIO_Pin_5
 
+#define LED_DATA_BUF_SIZE   600
+
 /*********************************************************************
  * @fn      TIM1_OutCompare_Init
  *
@@ -110,12 +112,11 @@ void gpioInit() {
     GPIO_WriteBit(PIN_RS485_RE, Bit_RESET); // enable receive (active low)
 }
 
-RBLB *rblb;
 
 // temporary for fake RS485 test setup / no collision detection, TODO: remove
 int toIgnore = 0;
 
-void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
+void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst) {
     switch (header->cmd) {
         case RBLB::SetParameters: {
             RBLB::cmd_param_t *paramCmd = (RBLB::cmd_param_t*)payload;
@@ -138,10 +139,11 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload) {
                 .tempAdc = adcSampleBuf[1],
                 .uptimeMs = millis(),  
             }};
-            /*toIgnore +=*/ rblb->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
+            /*toIgnore +=*/ rblbInst->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
             break;
     }
 }
+
 
 inline void rs485_de() {
     GPIO_WriteBit(PIN_RS485_DE, Bit_SET);
@@ -161,6 +163,10 @@ void rs485Write(const uint8_t *buf, size_t size) {
     rs485_re();
 }
 
+// TODO: somehow move buffer definition into class itself, maybe via templating? (but still show in memory usage)
+uint8_t ledDataBuf[LED_DATA_BUF_SIZE];
+RBLB rblb(rs485Write, rblbPacketCallback, millis, ledDataBuf, LED_DATA_BUF_SIZE);
+
 
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
@@ -179,8 +185,7 @@ int main(void) {
     config.load();
 
 
-    RBLB rblbInstance(getUID(), rs485Write, rblbPacketCallback, millis);
-    rblb = &rblbInstance;
+    rblb.setUid(getUID());
 
     uint32_t lastPrint = 0;
 
@@ -193,7 +198,7 @@ int main(void) {
             //     toIgnore--;
             //     continue;
             // }
-            rblb->handleByte(c);
+            rblb.handleByte(c);
         }
 
         // GPIO_WriteBit(PIN_LED1, Bit_SET);
