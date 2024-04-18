@@ -111,17 +111,19 @@ void loop() {
             for (int i = 0; i < ret; i++) {
                 printf("%016llX\n", discoveredUids[i]);
             }
+            RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::BitsPerColor_Data, .u8 = 16};
+            rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
         }
     }
 
     if (discoveryDone) {
-        printf("Sending color 0x%06llX to %016llX\n", color, discoveredUids[0]);
-        rblb.sendPacket(RBLB::CMD::Data, discoveredUids[0], (uint8_t*)&color, 3);
+        // printf("Sending color 0x%06llX to %016llX\n", color, discoveredUids[0]);
+        rblb.sendPacket(RBLB::CMD::Data, discoveredUids[0], (uint8_t*)&color, 6);
         color <<= 1;
-        if (color >= (1 << (8 * 3))) {
+        if (color >= (1ULL << (8 * 6))) {
             color = 1;
         }
-        delay(500);
+        delay(100);
     }
 
     delay(1);

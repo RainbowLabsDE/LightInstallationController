@@ -131,12 +131,18 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
             RBLB::cmd_param_t *paramCmd = (RBLB::cmd_param_t*)payload;
             
             switch (paramCmd->paramId) {
-                case RBLB::NodeNum:
+                case RBLB::ParamID::NodeNum:
                     config._config.addressOffset = paramCmd->u16;
                     break;
-                case RBLB::NumChannels:
+                case RBLB::ParamID::NumChannels:
                     config._config.numOutputs = paramCmd->u8;
                     // TODO: reconfigure PWM outputs
+                    break;
+                case RBLB::ParamID::BitsPerColor_PWM:
+                    config._config.bitDepthPWM = paramCmd->u8;
+                    break;
+                case RBLB::ParamID::BitsPerColor_Data:
+                    config._config.bitDepthData = paramCmd->u8;
                     break;
             }
             // or reconfigure everything here, idk
