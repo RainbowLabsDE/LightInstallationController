@@ -32,7 +32,7 @@ void rs485Write(const uint8_t *buf, size_t size) {
     // }
 }
 
-void incomingPacket(RBLB::uidCommHeader_t *header, uint8_t *payload) {
+void incomingPacket(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst) {
     printf("RBLB packet: cmd: %02X, addr: %016llX, len: %4d", header->cmd, header->address, header->len);
     if (header->len) {
         printf(", payload: ");
@@ -76,6 +76,7 @@ void setup() {
 uint32_t lastByteRxd = 0;
 uint32_t lastPacketSent = 0;
 bool discoveryDone = false;
+uint64_t color = 1;
 
 void loop() {
     while (Serial1.available()) {
@@ -112,5 +113,16 @@ void loop() {
             }
         }
     }
+
+    if (discoveryDone) {
+        printf("Sending color 0x%06llX to %016llX\n", color, discoveredUids[0]);
+        rblb.sendPacket(RBLB::CMD::Data, discoveredUids[0], (uint8_t*)&color, 3);
+        color <<= 1;
+        if (color >= (1 << (8 * 3))) {
+            color = 1;
+        }
+        delay(500);
+    }
+
     delay(1);
 }

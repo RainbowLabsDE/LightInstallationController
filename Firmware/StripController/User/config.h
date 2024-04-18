@@ -12,9 +12,9 @@ class Config {
         uint8_t configVersion;
 
         uint16_t addressOffset;
-        uint16_t numOutputs : 3;
-        uint16_t bitDepthPWM : 5;
-        uint16_t bitDepthData : 5;
+        uint16_t numOutputs : 3;    // <= 7
+        uint16_t bitDepthPWM : 5;   // <= 31
+        uint16_t bitDepthData : 5;  // <= 31
         
         uint16_t crc;
     } config_t;
@@ -31,7 +31,6 @@ class Config {
                 printfd("[CFG] Error during flash write: %d\n", status);
             }
         }
-        
     }
 
     // loads config from flash

@@ -97,6 +97,15 @@ void setPwmOutputs(uint16_t o1, uint16_t o2, uint16_t o3, uint16_t o4 = 0, uint1
     // o5
 }
 
+void setPwmOutput(int chan, uint16_t outputVal) {
+    switch (chan) {
+        case 0: TIM_SetCompare3(TIM1, outputVal);   break;  // R
+        case 1: TIM_SetCompare1(TIM1, outputVal);   break;  // G
+        case 2: TIM_SetCompare2(TIM1, outputVal);   break;  // B
+        case 3: TIM_SetCompare3(TIM1, outputVal);   break;  // W
+    }
+}
+
 void gpioInit() {
     GPIO_InitTypeDef gpioInitStruct = {
         .GPIO_Pin = GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_4 | GPIO_Pin_5,
@@ -131,6 +140,10 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
                     break;
             }
             // or reconfigure everything here, idk
+
+            int dataWindowLen = ((config._config.bitDepthData + 7) / 8) * config._config.numOutputs;
+            int dataWindowOffs = config._config.addressOffset * dataWindowLen;
+            rblbInst->setDataWindow(dataWindowOffs, dataWindowLen);
             break;
         }
         case RBLB::GetStatus:
@@ -144,6 +157,33 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
     }
 }
 
+void rblbDataCallback(uint8_t *data, size_t receivedBytes) {
+    int bitsData = config._config.bitDepthData;
+    int bitsPWM = config._config.bitDepthPWM;
+    int dataBytesPerChan = 1 + (bitsData > 8);  // currently only handles full 8/16-bit data per channel
+    for (int channel = 0; channel < config._config.numOutputs; channel++) {
+        size_t dataOffset = channel * dataBytesPerChan;
+
+        if (dataOffset >= receivedBytes) {
+            return;
+        }
+
+        uint16_t value = data[dataOffset];
+        if (dataBytesPerChan == 2) {
+            value |= data[dataOffset + 1] << 8;     // channel data is assumed little-endian
+        }
+        
+        // simply shift the given data bits into the required PWM bits, if mismatched
+        if (bitsData < bitsPWM) {
+            value <<= (bitsPWM - bitsData);
+        }
+        else if (bitsData > bitsPWM) {
+            value >>= (bitsData - bitsPWM);
+        }
+
+        setPwmOutput(channel, value);
+    }
+}
 
 inline void rs485_de() {
     GPIO_WriteBit(PIN_RS485_DE, Bit_SET);
@@ -186,6 +226,7 @@ int main(void) {
 
 
     rblb.setUid(getUID());
+    rblb.setDataCallback(rblbDataCallback);
 
     uint32_t lastPrint = 0;
 

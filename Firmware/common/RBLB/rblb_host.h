@@ -5,9 +5,11 @@ class RBLB_Host : public RBLB {
     public:
     RBLB_Host(uint64_t ownUID,
         void (*txFunc)(const uint8_t *buf, size_t size),
-        void (*packetCallback)(uidCommHeader_t *header, uint8_t *payload),
+        void (*packetCallback)(uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst),
         uint32_t (*getCurrentMillis)()
-        ) : RBLB(ownUID, txFunc, packetCallback, getCurrentMillis) {};
+        ) : RBLB(txFunc, packetCallback, getCurrentMillis) {
+            setUid(ownUID);
+        };
 
     // Needs to be called multiple times until done (nonblocking, because incoming byte handling)
     // returns -1 when not done, else number of discovered nodes

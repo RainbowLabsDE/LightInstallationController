@@ -152,5 +152,6 @@ size_t UART::sendBytes(const uint8_t *buf, size_t size) {
         while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
         USART_SendData(USART1, buf[i]);
     }
+    while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);    // need blocking for correct RS485 timing.
     return size;
 }

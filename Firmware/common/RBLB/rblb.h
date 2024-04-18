@@ -23,7 +23,7 @@ class RBLB {
     static const uint8_t Response = 0x80;
 
     enum ParamID : uint8_t {
-        NodeNum,            // 16 bit node number
+        NodeNum = 1,        // 16 bit node number
         NumChannels,        // 1 - 6
         BitsPerColor_PWM,   // 8 - 16
         BitsPerColor_Data,  // 8/16 
@@ -91,6 +91,12 @@ class RBLB {
 
     void setUid(uint64_t ownUID) { _uid = ownUID; }
 
+    // function to call when LED data has been sucessfully received
+    void setDataCallback(void (*dataCallback)(uint8_t *data, size_t receivedBytes)) { _dataCallback = dataCallback; }
+    // only return data from this area
+    // TODO: maybe set bits/color, nodeID etc directly instead? (scope of this library?)
+    void setDataWindow(uint16_t start, uint16_t length) { _dataStart = start; _dataLen = length; }
+
     void handleByte(uint8_t byte);
     size_t sendPacket(uint8_t cmd, uint64_t dstUid = 0, const uint8_t *payload = NULL, size_t payloadSize = 0);
     void idleLineReceived();
@@ -99,9 +105,10 @@ class RBLB {
     protected:
     void handlePacketInternal(uidCommHeader_t *header, uint8_t *payload);
 
-    void (*_sendBytes)(const uint8_t *buf, size_t size);
-    void (*_packetCallback)(uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst);
-    uint32_t (*_getCurrentMillis)();
+    void (*_sendBytes)(const uint8_t *buf, size_t size) = nullptr;
+    void (*_packetCallback)(uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst) = nullptr;
+    uint32_t (*_getCurrentMillis)() = nullptr;
+    void (*_dataCallback)(uint8_t *data, size_t receivedBytes) = nullptr;
 
     // Node
     uint64_t _uid;
@@ -115,6 +122,7 @@ class RBLB {
     // buffer for storing received LED data frame
     uint8_t* _dataBuf;
     const size_t _dataBufSize;
+    uint16_t _dataStart = 0, _dataLen = 3;
 
     // Host (TODO: leave out from node instance somehow. Inheritance / Templating?)
     bool _lastCrcCorrect = false;

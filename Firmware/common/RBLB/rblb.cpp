@@ -8,6 +8,9 @@ void RBLB::handleByte(uint8_t byte) {
     if (_getCurrentMillis() - _lastByteReceived >= PACKET_TIMEOUT) {
         // discard previous packet if no new bytes arrived for some time
         _curReadIdx = 0;
+        if (_packetBuf[0] <= DataSimple) {  // data packed timed out
+            // TODO
+        }
     }
 
     if (_curReadIdx == 0) {
@@ -24,7 +27,7 @@ void RBLB::handleByte(uint8_t byte) {
     }
 
     // UID command
-    if (_packetBuf[0] >= DiscoveryInit) {
+    if (_packetBuf[0] >= CMD::DiscoveryInit || _packetBuf[0] == CMD::Data) {    // TODO: longer data won't fit in packetBuf
         // complete header read?
         if (_curReadIdx >= sizeof(uidCommHeader_t)) {
             // complete data read? (need to check this separately, otherwise data length is unknown)
@@ -33,6 +36,7 @@ void RBLB::handleByte(uint8_t byte) {
 
                 if (header->len > sizeof(_packetBuf)) {
                     // can't handle oversized packet, don't do anything as of right now.
+                    // TODO: skip remaining bytes according to header->len?
                     _curReadIdx = 0;
                     return;
                 }
@@ -110,7 +114,12 @@ void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
             case DiscoveryBurst|Response:
             case DiscoverySilence|Response:
                 // ignore own / duplicate messages
-            break;
+                break;
+            case Data:
+                if (_dataCallback) {
+                    _dataCallback(payload, header->len);
+                }
+                break;
             default:
                 _packetCallback(header, payload, this);
                 break;
