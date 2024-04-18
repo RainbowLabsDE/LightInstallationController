@@ -8,7 +8,7 @@ class RBLB {
     public:
 
     enum CMD : uint8_t {
-        Data,               // data using previously configured values
+        Data = 1,           // data using previously configured values
         DataSimple,         // data with simple protocol (TODO)
 
         DiscoveryInit = 16, // bring all nodes into discoverable state
@@ -18,6 +18,7 @@ class RBLB {
         SetParameters = 32,       
         GetParameters,
         GetStatus,          // Voltage / Temperature / uptime? / ???
+        Reset,
     };
 
     static const uint8_t Response = 0x80;
@@ -43,9 +44,9 @@ class RBLB {
 
     typedef struct {
         uint8_t cmd;
-        // uint16_t len;           // length of data (excluding header and checksum)
-        // uint8_t chkSum;         // checksum, summed payload bytes
-        // uint8_t chkXor;         // checksum, xored payload bytes
+        uint16_t len;           // length of data (excluding header)
+        uint8_t chkSum;         // checksum, summed payload bytes
+        uint8_t chkXor;         // checksum, xored payload bytes
         uint8_t data[];
     } simpleCommHeader_t;
 
@@ -78,7 +79,7 @@ class RBLB {
 
     static const uint64_t ADDR_HOST = 0;
     static const uint64_t ADDR_BROADCAST = UINT64_MAX;
-    static const unsigned PACKET_TIMEOUT = 5;  // ms, after that time a incomplete packet is discarded
+    static const unsigned PACKET_TIMEOUT = 2;  // ms, after that time a incomplete packet is discarded
     static const unsigned DISCOVERY_TIMEOUT = 2;  // ms (is actually 1-2ms because of timing. TODO: maybe switch to micros()?)
 
     RBLB(
@@ -123,6 +124,7 @@ class RBLB {
     uint8_t* _dataBuf;
     const size_t _dataBufSize;
     uint16_t _dataStart = 0, _dataLen = 3;
+    uint8_t _dataChkSum = 0, _dataChkXor = 0;
 
     // Host (TODO: leave out from node instance somehow. Inheritance / Templating?)
     bool _lastCrcCorrect = false;

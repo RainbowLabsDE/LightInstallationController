@@ -17,6 +17,13 @@ void RBLB::handleByte(uint8_t byte) {
         if (byte >= DiscoveryInit) {    // uid command
             memset(_packetBuf, 0, sizeof(_packetBuf));
         }
+        else if (byte == CMD::DataSimple) {
+            if (_dataBuf) {
+                memset(_dataBuf, 0, _dataBufSize);
+            }
+            _dataChkSum = 0;
+            _dataChkXor = 0;
+        }
         // printf("\n[%016llX] New Packet  ", _uid);
         // reset on first received byte. Relevant for collision detection
         _lastCrcCorrect = false; 
@@ -72,9 +79,33 @@ void RBLB::handleByte(uint8_t byte) {
             }
         }
     }
-    else {  // data packet
+    else if (_packetBuf[0] == CMD::DataSimple) {  // data packet
         // TODO: filter out data relevant for oneself and parse it according to the config
         // save into buffer and only commit once datastream ends / crc/length correct for synchronization purposes
+        if (_curReadIdx >= sizeof(simpleCommHeader_t)) {
+            int dataIdx = _curReadIdx - sizeof(simpleCommHeader_t) - _dataStart;
+            
+            if (dataIdx >= 0 && dataIdx < _dataBufSize) {
+                _dataBuf[dataIdx] = byte;
+            }
+            _dataChkSum += byte;
+            _dataChkXor ^= byte;
+
+            simpleCommHeader_t *header = (simpleCommHeader_t*)_packetBuf;
+
+            // all data received, according to header
+            if (_curReadIdx >= sizeof(simpleCommHeader_t) + header->len - 1) {
+                if (header->chkSum == _dataChkSum && header->chkXor == _dataChkXor) {
+                    if (_dataCallback) {
+                        _dataCallback(_dataBuf, header->len);
+
+                        // received correct packet, so we don't need to rely on timeout to detect next packet
+                        _curReadIdx = 0;
+                    }
+                }
+            }
+            
+        }
     }
 
 

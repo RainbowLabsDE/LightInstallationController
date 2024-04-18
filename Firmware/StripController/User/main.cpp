@@ -127,7 +127,7 @@ int toIgnore = 0;
 
 void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst) {
     switch (header->cmd) {
-        case RBLB::SetParameters: {
+        case RBLB::CMD::SetParameters: {
             RBLB::cmd_param_t *paramCmd = (RBLB::cmd_param_t*)payload;
             
             switch (paramCmd->paramId) {
@@ -152,13 +152,17 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
             rblbInst->setDataWindow(dataWindowOffs, dataWindowLen);
             break;
         }
-        case RBLB::GetStatus:
+        case RBLB::CMD::GetStatus: {
             RBLB::cmd_status_t pkt = { .cmd_status_s = {
                 .vBusAdc = adcSampleBuf[0],
                 .tempAdc = adcSampleBuf[1],
                 .uptimeMs = millis(),  
             }};
             /*toIgnore +=*/ rblbInst->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
+            break;
+        }
+        case RBLB::CMD::Reset:
+            NVIC_SystemReset();
             break;
     }
 }

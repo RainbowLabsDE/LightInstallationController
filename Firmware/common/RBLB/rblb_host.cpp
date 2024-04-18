@@ -113,4 +113,21 @@ int RBLB_Host::discoverNext() {
     }
 }
 
+size_t RBLB_Host::sendSimpleData(const uint8_t *payload, size_t size) {
+    uint16_t packetSize = sizeof(simpleCommHeader_t) + size;
+    uint8_t buf[packetSize] = {0};
+    simpleCommHeader_t *header = (simpleCommHeader_t*)buf;
+
+    header->cmd = RBLB::CMD::DataSimple;
+    header->len = size;
+    for (size_t i = 0; i < size; i++) {
+        header->chkSum += payload[i];
+        header->chkXor ^= payload[i];
+    }
+    memcpy(buf + sizeof(simpleCommHeader_t), payload, size);
+
+    _sendBytes(buf, packetSize);
+    return packetSize;
+}
+
 #endif

@@ -16,6 +16,8 @@ class RBLB_Host : public RBLB {
     void discoveryInit(uint64_t *discoveredUids, size_t size);
     int discoverNext();
 
+    size_t sendSimpleData(const uint8_t *payload, size_t size);
+
     protected:
     // void handlePacketInternal(uidCommHeader_t *header, uint8_t *payload);
     // Host (TODO: leave out from node instance somehow. Inheritance / Templating?)
