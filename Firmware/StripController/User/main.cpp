@@ -9,7 +9,7 @@ vu8 val;
 Config config;
 
 // R  - T1CH3 - PC0
-// G  - T1CH1 - PC6
+// G  - T1CH1 - PC6 | WS2812 DOUT
 // B  - T1CH2 - PC7
 // W  - T1CH4 - PD3
 // WW - T2CH2 - PD4
@@ -27,7 +27,14 @@ Config config;
 #define PIN_RS485_DE    GPIOC, GPIO_Pin_4
 #define PIN_RS485_RE    GPIOC, GPIO_Pin_5
 
-#define LED_DATA_BUF_SIZE   600
+#define NO_DATA_TIMEOUT 2000
+
+#define LED_DATA_BUF_SIZE   600     // also used for the internal RBLB buffer size (for double buffering)
+uint8_t ledData[LED_DATA_BUF_SIZE] = {0};
+
+uint32_t lastDataReceived = 0;
+
+#if VARIANT_PWM
 
 /*********************************************************************
  * @fn      TIM1_OutCompare_Init
@@ -105,6 +112,28 @@ void setPwmOutput(int chan, uint16_t outputVal) {
         case 3: TIM_SetCompare3(TIM1, outputVal);   break;  // W
     }
 }
+#endif
+
+#if VARIANT_WS2812
+
+#define WS2812DMA_IMPLEMENTATION
+#define WSRGB
+
+extern "C" { void DMA1_Channel3_IRQHandler( void ) __attribute__((interrupt("WCH-Interrupt-fast"))); }
+#include "ws2812b_dma_spi_led_driver.h"
+
+uint32_t WS2812BLEDCallback( int ledno ) {
+    // return 0xFF << (8 * ((millis() / 1000) % 3));
+    // return 1 << (ledno + (millis() >> 10) % 24);
+    // return 0x110000;
+    if (ledno < (sizeof(ledData) / 3)) {
+        uint32_t data = 0;
+        memcpy(&data, ledData + (ledno * 3), 3);
+        return data;
+    }
+    return 0;
+}
+#endif
 
 void gpioInit() {
     GPIO_InitTypeDef gpioInitStruct = {
@@ -121,9 +150,17 @@ void gpioInit() {
     GPIO_WriteBit(PIN_RS485_RE, Bit_RESET); // enable receive (active low)
 }
 
-
-// temporary for fake RS485 test setup / no collision detection, TODO: remove
-int toIgnore = 0;
+void updateDataWindow(RBLB* rblbInst) {
+    #if VARIANT_PWM
+        int dataWindowLen = ((config._config.bitDepthData + 7) / 8) * config._config.numOutputs;
+        int dataWindowOffs = config._config.nodeNum * dataWindowLen;
+        rblbInst->setDataWindow(dataWindowOffs, dataWindowLen);
+    #elif VARIANT_WS2812
+        int dataWindowLen =  config._config.numLEDs * config._config.bytesPerLED;
+        int dataWindowOffs = config._config.nodeNum * config._config.bytesPerLED;
+        rblbInst->setDataWindow(dataWindowOffs, dataWindowLen);
+    #endif
+}
 
 void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst) {
     switch (header->cmd) {
@@ -132,9 +169,9 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
             
             switch (paramCmd->paramId) {
                 case RBLB::ParamID::NodeNum:
-                    config._config.addressOffset = paramCmd->u16;
+                    config._config.nodeNum = paramCmd->u16;
                     break;
-                case RBLB::ParamID::NumChannels:
+                case RBLB::ParamID::NumChannels_PWM:
                     config._config.numOutputs = paramCmd->u8;
                     // TODO: reconfigure PWM outputs
                     break;
@@ -144,12 +181,16 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
                 case RBLB::ParamID::BitsPerColor_Data:
                     config._config.bitDepthData = paramCmd->u8;
                     break;
+                case RBLB::ParamID::NumLEDs:
+                    config._config.numLEDs = paramCmd->u16;
+                    break;
+                case RBLB::ParamID::BytesPerLED:
+                    config._config.bytesPerLED = paramCmd->u8;
+                    break;
             }
-            // or reconfigure everything here, idk
+           
+            updateDataWindow(rblbInst);
 
-            int dataWindowLen = ((config._config.bitDepthData + 7) / 8) * config._config.numOutputs;
-            int dataWindowOffs = config._config.addressOffset * dataWindowLen;
-            rblbInst->setDataWindow(dataWindowOffs, dataWindowLen);
             break;
         }
         case RBLB::CMD::GetStatus: {
@@ -158,7 +199,7 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
                 .tempAdc = adcSampleBuf[1],
                 .uptimeMs = millis(),  
             }};
-            /*toIgnore +=*/ rblbInst->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
+            rblbInst->sendPacket(header->cmd, getUID(), pkt.raw, sizeof(pkt));
             break;
         }
         case RBLB::CMD::Reset:
@@ -168,31 +209,43 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
 }
 
 void rblbDataCallback(uint8_t *data, size_t receivedBytes) {
-    int bitsData = config._config.bitDepthData;
-    int bitsPWM = config._config.bitDepthPWM;
-    int dataBytesPerChan = 1 + (bitsData > 8);  // currently only handles full 8/16-bit data per channel
-    for (int channel = 0; channel < config._config.numOutputs; channel++) {
-        size_t dataOffset = channel * dataBytesPerChan;
+    lastDataReceived = millis();
+    #if VARIANT_PWM
+        int bitsData = config._config.bitDepthData;
+        int bitsPWM = config._config.bitDepthPWM;
+        int dataBytesPerChan = 1 + (bitsData > 8);  // currently only handles full 8/16-bit data per channel
+        for (int channel = 0; channel < config._config.numOutputs; channel++) {
+            size_t dataOffset = channel * dataBytesPerChan;
 
-        if (dataOffset >= receivedBytes) {
-            return;
-        }
+            if (dataOffset >= receivedBytes) {
+                return;
+            }
 
-        uint16_t value = data[dataOffset];
-        if (dataBytesPerChan == 2) {
-            value |= data[dataOffset + 1] << 8;     // channel data is assumed little-endian
-        }
-        
-        // simply shift the given data bits into the required PWM bits, if mismatched
-        if (bitsData < bitsPWM) {
-            value <<= (bitsPWM - bitsData);
-        }
-        else if (bitsData > bitsPWM) {
-            value >>= (bitsData - bitsPWM);
-        }
+            uint16_t value = data[dataOffset];
+            if (dataBytesPerChan == 2) {
+                value |= data[dataOffset + 1] << 8;     // channel data is assumed little-endian
+            }
+            
+            // simply shift the given data bits into the required PWM bits, if mismatched
+            if (bitsData < bitsPWM) {
+                value <<= (bitsPWM - bitsData);
+            }
+            else if (bitsData > bitsPWM) {
+                value >>= (bitsData - bitsPWM);
+            }
 
-        setPwmOutput(channel, value);
-    }
+            setPwmOutput(channel, value);
+        }
+    #endif 
+
+    #if VARIANT_WS2812
+        if (receivedBytes < sizeof(ledData)) {
+            memcpy(ledData, data, receivedBytes);
+            if (!WS2812BLEDInUse) {
+                WS2812BDMAStart(receivedBytes / config._config.bytesPerLED);
+            }
+        }
+    #endif
 }
 
 inline void rs485_de() {
@@ -214,8 +267,8 @@ void rs485Write(const uint8_t *buf, size_t size) {
 }
 
 // TODO: somehow move buffer definition into class itself, maybe via templating? (but still show in memory usage)
-uint8_t ledDataBuf[LED_DATA_BUF_SIZE];
-RBLB rblb(rs485Write, rblbPacketCallback, millis, ledDataBuf, LED_DATA_BUF_SIZE);
+uint8_t internalLedDataBuf[LED_DATA_BUF_SIZE] = {0};
+RBLB rblb(rs485Write, rblbPacketCallback, millis, internalLedDataBuf, LED_DATA_BUF_SIZE);
 
 
 int main(void) {
@@ -228,9 +281,14 @@ int main(void) {
     printfd("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
     
     printfd("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
-
-    TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
-    setPwmOutputs((1 << 14)/100, (1 << 14)/2, (1 << 14)/1000, 1);
+    #if VARIANT_PWM
+        TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
+        setPwmOutputs((1 << 14)/100, (1 << 14)/2, (1 << 14)/1000, 1);
+    #endif
+    #if VARIANT_WS2812
+        WS2812BDMAInit();
+        WS2812BDMAStart(LED_DATA_BUF_SIZE / 3); // set to black
+    #endif
     adcInit();
     config.load();
 
@@ -249,7 +307,20 @@ int main(void) {
             //     toIgnore--;
             //     continue;
             // }
+            GPIOC->BSHR = GPIO_Pin_1;   // profiling
             rblb.handleByte(c);
+            GPIOC->BCR = GPIO_Pin_1;
+        }
+
+        if (millis() - lastDataReceived >= NO_DATA_TIMEOUT) {
+            lastDataReceived = millis(); // don't repeat too often
+            #if VARIANT_PWM
+                setPwmOutputs(0, 0, 0, 0, 0, 0);
+            #endif
+            #if VARIANT_WS2812
+                memset(ledData, 0, sizeof(ledData));
+                WS2812BDMAStart(LED_DATA_BUF_SIZE / 3); // set to black
+            #endif
         }
 
         // GPIO_WriteBit(PIN_LED1, Bit_SET);

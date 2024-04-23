@@ -24,13 +24,19 @@ class RBLB {
     static const uint8_t Response = 0x80;
 
     enum ParamID : uint8_t {
-        NodeNum = 1,        // 16 bit node number
-        NumChannels,        // 1 - 6
+        NodeNum = 1,        // u16, node number (in WS2812 mode: starting LED number)
+        GlobalBrightness,   // 0 - 255, unused
+        GammaEnable,        // bool, unused
+        Baudrate,           // u32, unnused
+
+        // PWM specific
+        NumChannels_PWM,    // 1 - 6
         BitsPerColor_PWM,   // 8 - 16
         BitsPerColor_Data,  // 8/16 
-        GlobalBrightness,   // 0 - 255
-        GammaEnable,        // bool
-        Baudrate,
+
+        // WS2812 specific
+        BytesPerLED,        // 3-4, amount of color channels per LED
+        NumLEDs,            // u16, number of LEDs in the string
     };
 
     #pragma pack(push, 1)

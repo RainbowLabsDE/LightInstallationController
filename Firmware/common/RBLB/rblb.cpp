@@ -5,7 +5,8 @@
 #include <string.h>
 
 void RBLB::handleByte(uint8_t byte) {
-    if (_getCurrentMillis() - _lastByteReceived >= PACKET_TIMEOUT) {
+    uint32_t curMillis = _getCurrentMillis();
+    if (curMillis - _lastByteReceived >= PACKET_TIMEOUT) {
         // discard previous packet if no new bytes arrived for some time
         _curReadIdx = 0;
         if (_packetBuf[0] <= DataSimple) {  // data packed timed out
@@ -85,7 +86,7 @@ void RBLB::handleByte(uint8_t byte) {
         if (_curReadIdx >= sizeof(simpleCommHeader_t)) {
             int dataIdx = _curReadIdx - sizeof(simpleCommHeader_t) - _dataStart;
             
-            if (dataIdx >= 0 && dataIdx < _dataBufSize) {
+            if (dataIdx >= 0 && dataIdx < _dataLen) {
                 _dataBuf[dataIdx] = byte;
             }
             _dataChkSum += byte;
@@ -97,7 +98,7 @@ void RBLB::handleByte(uint8_t byte) {
             if (_curReadIdx >= sizeof(simpleCommHeader_t) + header->len - 1) {
                 if (header->chkSum == _dataChkSum && header->chkXor == _dataChkXor) {
                     if (_dataCallback) {
-                        _dataCallback(_dataBuf, header->len);
+                        _dataCallback(_dataBuf, _dataLen);
 
                         // received correct packet, so we don't need to rely on timeout to detect next packet
                         _curReadIdx = 0;
@@ -110,7 +111,7 @@ void RBLB::handleByte(uint8_t byte) {
 
 
     _curReadIdx++;
-    _lastByteReceived = _getCurrentMillis();
+    _lastByteReceived = curMillis;
 }
 
 void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {

@@ -11,14 +11,21 @@ class Config {
         uint8_t preamble;
         uint8_t configVersion;
 
-        uint16_t addressOffset;
+        uint16_t nodeNum;
         uint16_t numOutputs : 3;    // <= 7
         uint16_t bitDepthPWM : 5;   // <= 31
         uint16_t bitDepthData : 5;  // <= 31
+        uint16_t gammaEnable : 1;   // bool
+
+        uint16_t numLEDs : 12;      // <= 2047
+        uint16_t bytesPerLED : 4;   // <= 15
+
         
         uint16_t crc;
     } config_t;
     #pragma pack(pop)
+
+    static_assert(sizeof(config_t) <= 24, "Config struct too large to fit into option bytes");
 
     // writes config to flash
     void save() {
@@ -67,13 +74,16 @@ class Config {
 
     static constexpr config_t defaultData = {
         .preamble = 0x42,
-        .configVersion = 0x01,
+        .configVersion = 0x02,
 
-        .addressOffset = 0,
+        .nodeNum = 0,
         .numOutputs = 3,
         .bitDepthPWM = 14,
         .bitDepthData = 8,
-        
+        .gammaEnable = 0,
+
+        .numLEDs = 0,
+        .bytesPerLED = 3,
     };
 
 

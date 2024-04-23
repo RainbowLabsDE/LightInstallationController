@@ -172,10 +172,11 @@ static void WS2812FillBuffSec( uint16_t * ptr, int numhalfwords, int tce )
 	WS2812LEDPlace = place;
 }
 
-void DMA1_Channel3_IRQHandler( void ) __attribute__((interrupt));
+// void DMA1_Channel3_IRQHandler( void ) __attribute__((interrupt));	// declared as "extern C" externally, because of C++ project
 void DMA1_Channel3_IRQHandler( void ) 
 {
 	//GPIOD->BSHR = 1;	 // Turn on GPIOD0 for profiling
+	GPIOC->BSHR = GPIO_Pin_2;
 
 	// Backup flags.
 	volatile int intfr = DMA1->INTFR;
@@ -199,9 +200,10 @@ void DMA1_Channel3_IRQHandler( void )
 			WS2812FillBuffSec( WS2812dmabuff + DMA_BUFFER_LEN / 2, DMA_BUFFER_LEN / 2, 0 );
 		}
 		intfr = DMA1->INTFR;
-	} while( intfr );
+	} while( intfr & (DMA1_IT_GL3 | DMA1_IT_TC3 | DMA1_IT_HT3) );
 
 	//GPIOD->BSHR = 1<<16; // Turn off GPIOD0 for profiling
+	GPIOC->BCR = GPIO_Pin_2;
 }
 
 void WS2812BDMAStart( int leds )
@@ -221,6 +223,10 @@ void WS2812BDMAStart( int leds )
 	DMA1_Channel3->CNTR = DMA_BUFFER_LEN; // Number of unique uint16_t entries.
 	DMA1_Channel3->CFGR |= DMA_Mode_Circular;
 }
+
+// missing defines from ch32v003fun
+#define GPIO_CNF_OUT_PP_AF   8
+#define CTLR1_SPE_Set         ((uint16_t)0x0040)
 
 void WS2812BDMAInit( )
 {

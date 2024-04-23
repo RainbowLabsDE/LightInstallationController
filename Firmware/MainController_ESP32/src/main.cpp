@@ -111,12 +111,16 @@ void loop() {
             for (int i = 0; i < ret; i++) {
                 printf("%016llX\n", discoveredUids[i]);
             }
-            RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::BitsPerColor_Data, .u8 = 16};
-            rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
-            param.paramId = RBLB::ParamID::NodeNum;
-            param.u16 = 1;
-            rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
+            if (ret == 0) { while(true); }
 
+            // RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::BitsPerColor_Data, .u8 = 8};
+            // rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
+            // param.paramId = RBLB::ParamID::NodeNum;
+            // param.u16 = 1;
+            // rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
+            
+            RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::NumLEDs, .u16 = 100};
+            rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
         }
         delay(1);
     }
@@ -125,26 +129,32 @@ void loop() {
         // printf("Sending color 0x%06llX to %016llX\n", color, discoveredUids[0]);
         // rblb.sendPacket(RBLB::CMD::Data, discoveredUids[0], (uint8_t*)&color, 6);
         // rblb.sendSimpleData((uint8_t*)&color, 6);
-        uint8_t buf[1500] = {0};
-        memcpy(buf + 6, &color, 6);
+
+        // uint8_t buf[1500] = {0};
+        // memcpy(buf + 6, &color, 6);
+        // rblb.sendSimpleData((uint8_t*)&buf, sizeof(buf));
+
+        // color += 16;
+        // if (color & (0xFFFFULL << 32)) {
+        //     color &= 0xFFFF00000000ULL;
+        //     color += 0x1000000000ULL;
+        // }
+        // else if (color & (0xFFFFULL << 16)) {
+        //     color &= 0x0000FFFF0000ULL;
+        //     color += 0x100000;
+        // }
+        // else {
+        //     color &= 0x00000000FFFF;
+        // }
+        // delayMicroseconds(2000);
+
+        uint8_t buf[900] = {0};
+        for (int i = 0; i < sizeof(buf); i += 3) {
+            uint32_t col = 1 << ((i / 3 + millis() / 50) % 24);
+            memcpy(buf + i, &col, 3);
+        }
         rblb.sendSimpleData((uint8_t*)&buf, sizeof(buf));
 
-        color += 16;
-        if (color & (0xFFFFULL << 32)) {
-            color &= 0xFFFF00000000ULL;
-            color += 0x1000000000ULL;
-        }
-        else if (color & (0xFFFFULL << 16)) {
-            color &= 0x0000FFFF0000ULL;
-            color += 0x100000;
-        }
-        else {
-            color &= 0x00000000FFFF;
-        }
-        // if (color >= (1ULL << (8 * 6))) {
-        //     color = 1;
-        // }
-        // delay(100);
         delayMicroseconds(2000);
     }
 
