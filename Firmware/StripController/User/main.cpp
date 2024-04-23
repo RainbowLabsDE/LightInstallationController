@@ -276,6 +276,7 @@ int main(void) {
     SysTickInit();
     gpioInit();
     uart1.init();
+    // uart1.sendBytes((uint8_t*)"Hello World!", 13);
 
     printfd("SystemClk:%d\r\n", SystemCoreClock);
     printfd("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
@@ -297,18 +298,28 @@ int main(void) {
     rblb.setDataCallback(rblbDataCallback);
 
     uint32_t lastPrint = 0;
+    uint8_t serBuf[32];
 
     while (1) {
-        while (uart1.available()) {
-            uint8_t c = uart1.read();
-            // printfd("%c", c);
-            // printfd("%8ld %8ld\n", millis(), micros());
-            // if (toIgnore) {
-            //     toIgnore--;
-            //     continue;
-            // }
+        // GPIOC->BSHR = GPIO_Pin_1;   // profiling
+        // while (uart1.available()) {
+        //     uint8_t c = uart1.read();
+        //     // printfd("%c", c);
+        //     // printfd("%8ld %8ld\n", millis(), micros());
+        //     // if (toIgnore) {
+        //     //     toIgnore--;
+        //     //     continue;
+        //     // }
+        //     rblb.handleByte(c);
+        // }
+        // GPIOC->BCR = GPIO_Pin_1;
+
+        // GPIOC->BSHR = GPIO_Pin_1;   // profiling
+        size_t bytesRead = uart1.readBytes(serBuf, sizeof(serBuf)); // takes ~2us when not doing anything. When copying data, up to 10us was seen
+        // GPIOC->BCR = GPIO_Pin_1;
+        for (size_t i = 0; i < bytesRead; i++) {
             GPIOC->BSHR = GPIO_Pin_1;   // profiling
-            rblb.handleByte(c);
+            rblb.handleByte(serBuf[i]);     // takes 3.2us for data bytes (and ~ 2.5us for header bytes), TODO: optimize
             GPIOC->BCR = GPIO_Pin_1;
         }
 

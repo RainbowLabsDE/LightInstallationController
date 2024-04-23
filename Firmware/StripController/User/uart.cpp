@@ -1,5 +1,6 @@
 #include "uart.h"
 #include "ch32v00x_conf.h"
+#include <string.h>
 
 UART uart1;
 
@@ -135,15 +136,43 @@ uint8_t UART::read() {
 }
 
 size_t UART::readBytes(uint8_t *buf, size_t size) {
-    if (size > available()) {
-        size = available();
+    uint16_t dmaSize = sizeof(_rxBuf);
+    uint16_t dmaPos = dmaSize - DMA_GetCurrDataCounter(DMA1_Channel5); // DMA DataCounter counts backwards
+    int bytesToRead = dmaPos - _rxBufIdx;
+
+    if (bytesToRead < 0) {  // data in buffer wraps around
+        // bytesToRead += dmaSize;
+        size_t numBytesEnd = dmaSize - _rxBufIdx;    // number of bytes at the end of the buffer
+        if (numBytesEnd > size) {    // not enough room in destination
+            bytesToRead = size;
+            // no wrap-around needed, fall through to below for normal copy
+        }
+        else {
+            memcpy(buf, _rxBuf + _rxBufIdx, numBytesEnd);    // read remainder of buffer into destination
+            _rxBufIdx = 0;
+            bytesToRead = dmaPos + numBytesEnd;
+            size_t numBytesFront = dmaPos;          // number of bytes wrapped around to beginning of buffer
+            if (bytesToRead > size) {
+                bytesToRead = size;
+                numBytesFront = size - numBytesEnd;
+            }
+            memcpy(buf + numBytesEnd, _rxBuf, numBytesFront);
+            _rxBufIdx = numBytesFront;
+            return bytesToRead;
+        }
+    }
+    if (bytesToRead > 0) {
+        if (bytesToRead > size) {   // clamp to max destination buffer size
+            bytesToRead = size;
+        }
+        memcpy(buf, _rxBuf + _rxBufIdx, bytesToRead);
+        _rxBufIdx += bytesToRead;
+    }
+    else {
+        return 0;
     }
 
-    for (int i = 0; i < size; i++) {
-        buf[i] = read();
-    }
-
-    return size;
+    return bytesToRead;
 }
 
 size_t UART::sendBytes(const uint8_t *buf, size_t size) {
