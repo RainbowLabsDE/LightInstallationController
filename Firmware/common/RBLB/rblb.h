@@ -107,6 +107,7 @@ class RBLB {
     void handleByte(uint8_t byte);
     size_t sendPacket(uint8_t cmd, uint64_t dstUid = 0, const uint8_t *payload = NULL, size_t payloadSize = 0);
     void idleLineReceived();
+    void loop();                    // call repeatedly when RBLB_LOWOVERHEAD is set (used for protocol timeout)
 
 
     protected:

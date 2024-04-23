@@ -4,15 +4,23 @@
 #include <stdio.h>
 #include <string.h>
 
+void RBLB::loop() {
+    #if defined(RBLB_LOWOVERHEAD)
+    if (_getCurrentMillis() - _lastByteReceived >= PACKET_TIMEOUT) {
+        // discard previous packet if no new bytes arrived for some time
+        _curReadIdx = 0;
+    }
+    #endif
+}
+
 void RBLB::handleByte(uint8_t byte) {
+    #if !defined(RBLB_LOWOVERHEAD)
     uint32_t curMillis = _getCurrentMillis();
     if (curMillis - _lastByteReceived >= PACKET_TIMEOUT) {
         // discard previous packet if no new bytes arrived for some time
         _curReadIdx = 0;
-        if (_packetBuf[0] <= DataSimple) {  // data packed timed out
-            // TODO
-        }
     }
+    #endif
 
     if (_curReadIdx == 0) {
         if (byte >= DiscoveryInit) {    // uid command
@@ -35,7 +43,7 @@ void RBLB::handleByte(uint8_t byte) {
     }
 
     // UID command
-    if (_packetBuf[0] >= CMD::DiscoveryInit || _packetBuf[0] == CMD::Data) {    // TODO: longer data won't fit in packetBuf
+    if (_packetBuf[0] != CMD::DataSimple) {    // TODO: longer data won't fit in packetBuf
         // complete header read?
         if (_curReadIdx >= sizeof(uidCommHeader_t)) {
             // complete data read? (need to check this separately, otherwise data length is unknown)
@@ -80,7 +88,7 @@ void RBLB::handleByte(uint8_t byte) {
             }
         }
     }
-    else if (_packetBuf[0] == CMD::DataSimple) {  // data packet
+    else {  // data packet
         // TODO: filter out data relevant for oneself and parse it according to the config
         // save into buffer and only commit once datastream ends / crc/length correct for synchronization purposes
         if (_curReadIdx >= sizeof(simpleCommHeader_t)) {
@@ -102,6 +110,7 @@ void RBLB::handleByte(uint8_t byte) {
 
                         // received correct packet, so we don't need to rely on timeout to detect next packet
                         _curReadIdx = 0;
+                        return;
                     }
                 }
             }
@@ -111,7 +120,7 @@ void RBLB::handleByte(uint8_t byte) {
 
 
     _curReadIdx++;
-    _lastByteReceived = curMillis;
+    _lastByteReceived = _getCurrentMillis();
 }
 
 void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
