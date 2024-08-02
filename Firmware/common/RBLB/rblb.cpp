@@ -73,6 +73,9 @@ void RBLB::handleByte(uint8_t byte) {
                     _lastCrcCorrect = true;
                     // printf("\n[%016llX] Correct CRC  ", _uid);
                     handlePacketInternal(header, header->data);
+
+                    // received correct packet, so we don't need to rely on timeout to detect next packet
+                    _curReadIdx = 0;
                 }
                 else {
                     // printf("\n[%016llX] Wrong CRC  ", _uid);
@@ -81,9 +84,6 @@ void RBLB::handleByte(uint8_t byte) {
                     // TODO: also set failed discovery state directly, as to speed up process
                 }
 
-
-                // received correct packet, so we don't need to rely on timeout to detect next packet
-                _curReadIdx = 0;
                 return;
             }
         }
