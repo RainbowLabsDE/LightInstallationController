@@ -152,7 +152,7 @@ size_t UART::readBytes(uint8_t *buf, size_t size) {
             _rxBufIdx = 0;
             bytesToRead = dmaPos + numBytesEnd;
             size_t numBytesFront = dmaPos;          // number of bytes wrapped around to beginning of buffer
-            if (bytesToRead > size) {
+            if (bytesToRead > (int)size) {
                 bytesToRead = size;
                 numBytesFront = size - numBytesEnd;
             }
@@ -162,7 +162,7 @@ size_t UART::readBytes(uint8_t *buf, size_t size) {
         }
     }
     if (bytesToRead > 0) {
-        if (bytesToRead > size) {   // clamp to max destination buffer size
+        if (bytesToRead > (int)size) {   // clamp to max destination buffer size
             bytesToRead = size;
         }
         memcpy(buf, _rxBuf + _rxBufIdx, bytesToRead);
@@ -177,7 +177,7 @@ size_t UART::readBytes(uint8_t *buf, size_t size) {
 
 size_t UART::sendBytes(const uint8_t *buf, size_t size) {
     // For now, just do it blockingly, TODO: make faster?
-    for (volatile int i = 0; i < size; i++) {
+    for (volatile size_t i = 0; i < size; i++) {
         while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
         USART_SendData(USART1, buf[i]);
     }

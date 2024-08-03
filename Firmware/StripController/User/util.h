@@ -23,7 +23,7 @@ uint64_t getUID();
 #if DEBUG_EN
     void printHex(uint8_t* buf, uint16_t size);
 #else
-    #define printHex(a,b) (0)
+    #define printHex(a,b) ((void)0)
 #endif
 
 // Write custom data after the system option bytes

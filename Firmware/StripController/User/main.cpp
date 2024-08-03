@@ -278,10 +278,10 @@ int main(void) {
     uart1.init();
     // uart1.sendBytes((uint8_t*)"Hello World!", 13);
 
-    printfd("SystemClk:%d\r\n", SystemCoreClock);
-    printfd("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), getUID());
+    printfd("SystemClk:%ld\r\n", SystemCoreClock);
+    printfd("Chip ID: %08lX %08lX\n", (uint32_t)(getUID() >> 32), (uint32_t)getUID());
     
-    printfd("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
+    printfd("RevID: %04lX, DevID: %04lx\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
     #if VARIANT_PWM
         TIM1_PWMOut_Init((1 << 14) - 2, 0, 0);
     #endif

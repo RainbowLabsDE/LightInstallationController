@@ -174,7 +174,7 @@ int flashOBRead(uint8_t *dst, size_t size) {
 
     uint8_t buf[size];
     
-    for (int i = 0; i < size; i++) {
+    for (size_t i = 0; i < size; i++) {
         uint16_t bytePair = ((uint16_t*)OB_BASE)[SYSTEM_OB_NUM + i];
         if (((bytePair & 0xFF) ^ (bytePair >> 8)) == 0xFF) {  // check that the inverse "checksum" is correct
             buf[i] = bytePair & 0xFF;

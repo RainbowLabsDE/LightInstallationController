@@ -35,7 +35,7 @@ class RBLB_Host : public RBLB {
     #pragma pack(pop)
 
     discovery_step_t *discoveryStack = NULL;
-    size_t discoveryStackSize = 256;
+    static const size_t discoveryStackSize = 256;
     size_t discoveryStackIdx = 0;   // points to next empty slot in stack
 
     // uint64_t discoveredValidUid = 0;
