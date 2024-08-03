@@ -283,8 +283,7 @@ int main(void) {
     
     printfd("RevID: %04X, DevID: %04x\n", DBGMCU_GetREVID(), DBGMCU_GetDEVID());
     #if VARIANT_PWM
-        TIM1_PWMOut_Init((1 << 14) - 2, 0, 1);
-        setPwmOutputs((1 << 14)/100, (1 << 14)/2, (1 << 14)/1000, 1);
+        TIM1_PWMOut_Init((1 << 14) - 2, 0, 0);
     #endif
     #if VARIANT_WS2812
         WS2812BDMAInit();

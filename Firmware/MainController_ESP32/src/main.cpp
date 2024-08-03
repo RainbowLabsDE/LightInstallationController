@@ -15,6 +15,14 @@ uint64_t discoveredUids[discoveredUidsSize];
 // char mockSerialBuf[mockSerialBufSize];
 // int mockSerialBufIdx = 0;
 
+const uint64_t nodeOrder[] = {
+    0x4912BC4EE0F7ABCD,
+    0x4913BC4EE0F8ABCD,
+    0x4915BC4EE0FAABCD,
+    0x4916BC4EE0FBABCD,
+};
+const int nodeOrder_num = sizeof(nodeOrder)/sizeof(nodeOrder[0]);
+
 
 void rs485Write(const uint8_t *buf, size_t size) {
     digitalWrite(PIN_RS485_DE, HIGH);
@@ -64,6 +72,8 @@ void setup() {
     // mockNodes[0] = new RBLB(0x8851BC48203C0001, mockWrite1, incomingPacket, (uint32_t (*)())millis);
     // mockNodes[1] = new RBLB(0x8851BC48203C0002, mockWrite2, incomingPacket, (uint32_t (*)())millis);
 
+    pinMode(PIN_RS485_DE, OUTPUT);
+
     delay(250);
     Serial1.begin(1000000, SERIAL_8N1, PIN_RX, PIN_TX);
     Serial.begin(2000000);
@@ -77,6 +87,8 @@ uint32_t lastByteRxd = 0;
 uint32_t lastPacketSent = 0;
 bool discoveryDone = false;
 uint64_t color = 0xFF0000000000;
+uint32_t iter = 0;
+bool stopped = false;
 
 void loop() {
     while (Serial1.available()) {
@@ -103,6 +115,12 @@ void loop() {
     //     bytesToIgnore = rblb.sendPacket(RBLB::GetStatus, RBLB::ADDR_BROADCAST);
     //     lastPacketSent = millis();
     // }
+
+
+    if (stopped) {
+        return;
+    }
+
     if (!discoveryDone) {
         int ret = rblb.discoverNext();
         if (ret > -1) {
@@ -111,7 +129,7 @@ void loop() {
             for (int i = 0; i < ret; i++) {
                 printf("%016llX\n", discoveredUids[i]);
             }
-            if (ret == 0) { while(true); }
+            if (ret == 0) { stopped = true; }
 
             // RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::BitsPerColor_Data, .u8 = 8};
             // rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
@@ -119,8 +137,15 @@ void loop() {
             // param.u16 = 1;
             // rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
             
-            RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::NumLEDs, .u16 = 100};
+            // RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::NumLEDs, .u16 = 100};
+            RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::BitsPerColor_Data, .u8 = 16};
             rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
+
+            param.paramId = RBLB::ParamID::NodeNum;
+            for (int i = 0; i < nodeOrder_num; i++) {
+                param.u16 = i;
+                rblb.sendPacket(RBLB::CMD::SetParameters, nodeOrder[i], (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
+            }
         }
         delay(1);
     }
@@ -148,14 +173,26 @@ void loop() {
         // }
         // delayMicroseconds(2000);
 
-        uint8_t buf[900] = {0};
-        for (int i = 0; i < sizeof(buf); i += 3) {
-            uint32_t col = 1 << ((i / 3 + millis() / 50) % 24);
-            memcpy(buf + i, &col, 3);
+        // uint8_t buf[4*3] = {0};
+        // for (int i = 0; i < sizeof(buf); i += 3) {
+        //     uint32_t col = 1 << ((i / 3 + millis() / 50) % 24);
+        //     memcpy(buf + i, &col, 3);
+        // }
+        // rblb.sendSimpleData((uint8_t*)&buf, sizeof(buf));
+
+        uint8_t buf[4*6] = {0};
+        for (int i = 0; i < sizeof(buf); i += 6) {
+            uint64_t col = 1ULL << ((i / 6 + millis() / 200) % 48);
+            memcpy(buf + i, &col, 6);
         }
         rblb.sendSimpleData((uint8_t*)&buf, sizeof(buf));
 
         delayMicroseconds(2000);
+        // iter++;
+        // if (iter >= 100) {
+        //     iter = 0;
+        //     delayMicroseconds(2000); // resync
+        // }
     }
 
 }
