@@ -130,7 +130,7 @@ class RBLB {
     // buffer for storing received LED data frame
     uint8_t* _dataBuf;
     const size_t _dataBufSize;
-    uint16_t _dataStart = 0, _dataLen = 3;
+    uint16_t _dataStart = 0, _dataLen = 0;
     uint8_t _dataChkSum = 0, _dataChkXor = 0;
 
     // Host (TODO: leave out from node instance somehow. Inheritance / Templating?)
