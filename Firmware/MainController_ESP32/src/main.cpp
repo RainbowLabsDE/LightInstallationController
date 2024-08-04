@@ -20,6 +20,7 @@ const uint64_t nodeOrder[] = {
     0x4913BC4EE0F8ABCD,
     0x4915BC4EE0FAABCD,
     0x4916BC4EE0FBABCD,
+    0x8851BC48203CABCD,
 };
 const int nodeOrder_num = sizeof(nodeOrder)/sizeof(nodeOrder[0]);
 
@@ -138,13 +139,12 @@ void loop() {
             // rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
             
             // RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::NumLEDs, .u16 = 100};
-            RBLB::cmd_param_t param = {.paramId = RBLB::ParamID::BitsPerColor_Data, .u8 = 16};
-            rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
+            // rblb.sendPacket(RBLB::CMD::SetParameters, RBLB::ADDR_BROADCAST, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
 
-            param.paramId = RBLB::ParamID::NodeNum;
+            rblb.setParameter(RBLB::ADDR_BROADCAST, RBLB::ParamID::BitsPerColor_Data, 16);
+
             for (int i = 0; i < nodeOrder_num; i++) {
-                param.u16 = i;
-                rblb.sendPacket(RBLB::CMD::SetParameters, nodeOrder[i], (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
+                rblb.setParameter(nodeOrder[i], RBLB::ParamID::NodeNum, i);
             }
         }
         delay(1);
@@ -180,7 +180,7 @@ void loop() {
         // }
         // rblb.sendSimpleData((uint8_t*)&buf, sizeof(buf));
 
-        uint8_t buf[4*6] = {0};
+        uint8_t buf[8*6] = {0};
         for (int i = 0; i < sizeof(buf); i += 6) {
             uint64_t col = 1ULL << ((i / 6 + millis() / 200) % 48);
             memcpy(buf + i, &col, 6);

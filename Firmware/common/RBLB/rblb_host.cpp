@@ -6,6 +6,49 @@
 #include <stdio.h>
 #include <string.h>
 
+void RBLB_Host::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
+    switch (header->cmd) {
+        case DiscoveryBurst|Response:    // valid discovery response received
+            if (header->address == ADDR_BROADCAST) {
+                break;
+            }
+            // discoveredValidUid = header->address;
+            // TODO: for time staggered replies, need to wait for a bit / need other logic
+            sendPacket(DiscoverySilence, header->address);  // try to silence node
+            discoveryState = DiscoveryWaitingForSilenceACK;
+            // printf("\n[DSC] State: %d", discoveryState);
+            break;
+        case DiscoverySilence|Response:  // received discovery silence ACK from node (indicating correct address was indeed discovered)
+            if (header->address == ADDR_BROADCAST) {
+                break;
+            }
+            // if (header->address == discoveredValidUid) { // if we got valid crc, it ought to be correct :shrug:
+                if (_discoveredUids && discoveredUidsNum < _discoveredUidsSize) {
+                    _discoveredUids[discoveredUidsNum++] = header->address;
+                }
+                discoveryState = DiscoveryGotValidUID;
+                // printf("\n[DSC] State: %d", discoveryState);
+            // }
+            // else {
+                // also indicates collision, I guess
+                // printf("Error: Other node than expected replied to discovery silence. (Expected: %016llX, got: %016llX)\n", discoveredValidUid, header->address);
+                // _discoverySilenceCollision = true;
+                // discoveryState = 
+            // }
+            
+            break;
+        case DiscoveryInit:
+        case DiscoveryInit|Response:
+        case DiscoveryBurst:
+        case DiscoverySilence:
+            // ignore own / duplicate messages
+        break;
+        default:
+            _packetCallback(header, payload, this);
+            break;
+    }
+}
+
 void RBLB_Host::discoveryInit(uint64_t *discoveredUids, size_t size) {
     _discoveredUids = discoveredUids;
     _discoveredUidsSize = size;
@@ -128,6 +171,11 @@ size_t RBLB_Host::sendSimpleData(const uint8_t *payload, size_t size) {
 
     _sendBytes(buf, packetSize);
     return packetSize;
+}
+
+void RBLB_Host::setParameter(uint64_t uid, RBLB::ParamID paramId, uint32_t value) {
+    RBLB::cmd_param_t param = {.paramId = paramId, .u32 = value};
+    sendPacket(RBLB::CMD::SetParameters, uid, (uint8_t*)&param, sizeof(RBLB::cmd_param_t));
 }
 
 #endif

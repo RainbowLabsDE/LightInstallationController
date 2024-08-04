@@ -111,7 +111,7 @@ class RBLB {
 
 
     protected:
-    void handlePacketInternal(uidCommHeader_t *header, uint8_t *payload);
+    virtual void handlePacketInternal(uidCommHeader_t *header, uint8_t *payload);
 
     void (*_sendBytes)(const uint8_t *buf, size_t size) = nullptr;
     void (*_packetCallback)(uidCommHeader_t *header, uint8_t *payload, RBLB* rblbInst) = nullptr;
@@ -126,25 +126,12 @@ class RBLB {
     uint8_t _packetBuf[32];     // buffer used for handling uid-based command packets
     uint16_t _curReadIdx = 0;
     uint32_t _lastByteReceived = 0;
+    bool _lastCrcCorrect = false;
 
     // buffer for storing received LED data frame
     uint8_t* _dataBuf;
     const size_t _dataBufSize;
     uint16_t _dataStart = 0, _dataLen = 0;
     uint8_t _dataChkSum = 0, _dataChkXor = 0;
-
-    // Host (TODO: leave out from node instance somehow. Inheritance / Templating?)
-    bool _lastCrcCorrect = false;
-    typedef enum DiscoveryState : uint8_t {
-        DiscoveryIdle,
-        DiscoveryWaitingForResponse,
-        DiscoveryWaitingForSilenceACK,
-        DiscoveryGotValidUID,
-    } discoveryState_t;
-
-    discoveryState_t discoveryState = DiscoveryIdle;
-
-    uint64_t *_discoveredUids = NULL;
-    size_t _discoveredUidsSize = 0;
-    size_t discoveredUidsNum = 0;
+    
 };

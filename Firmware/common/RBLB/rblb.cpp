@@ -23,6 +23,7 @@ void RBLB::handleByte(uint8_t byte) {
     #endif
 
     if (_curReadIdx == 0) {
+        // printf("\n");
         if (byte >= DiscoveryInit) {    // uid command
             memset(_packetBuf, 0, sizeof(_packetBuf));
         }
@@ -114,7 +115,6 @@ void RBLB::handleByte(uint8_t byte) {
                     }
                 }
             }
-            
         }
     }
 
@@ -124,103 +124,47 @@ void RBLB::handleByte(uint8_t byte) {
 }
 
 void RBLB::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
-    if (_uid != ADDR_HOST) {    // Am node
-        if (header->address != _uid && header->address != ADDR_BROADCAST) {
-            // not addressed to me
-            return;
-        }
-
-        switch (header->cmd) {
-            case DiscoveryInit:
-                _discovered = false;
-                break;
-            case DiscoveryBurst:
-                // TODO:
-                // Send time staggered? One discovery burst reply takes roughly 130 us @ 1MBaud
-                // calculate timeslots based on baud rate, set maximum slots / delay, maybe 1ms? (~7 slots @ 1MBaud)
-                if (!_discovered) {
-                    cmd_discovery_burst_t *disc = (cmd_discovery_burst_t *)header->data;
-                    // printf(" RXed burst ");
-                    if (_uid >= disc->searchAddress_min && _uid <= disc->searchAddress_max) {
-                        sendPacket(DiscoveryBurst|Response, _uid);   // respond to burst
-                    }
-                }
-                break;
-            case DiscoverySilence:
-                // printf(" Discovered! ");
-                sendPacket(DiscoverySilence|Response, _uid); // respond to silence
-                _discovered = true;
-                break;
-            case DiscoveryInit|Response:
-            case DiscoveryBurst|Response:
-            case DiscoverySilence|Response:
-                // ignore own / duplicate messages
-                break;
-            case Data:
-                if (_dataCallback) {
-                    _dataCallback(payload, header->len);
-                }
-                break;
-            default:
-                _packetCallback(header, payload, this);
-                break;
-        }
+    if (header->address != _uid && header->address != ADDR_BROADCAST) {
+        // not addressed to me
+        return;
     }
-    // TODO: handle host in separate function
-    // if (header->address != _uid) {
-        //     // not addressed to me
-        //     return;
-        // }
-    else {
-        switch (header->cmd) {
-            case DiscoveryBurst|Response:    // valid discovery response received
-                if (header->address == ADDR_BROADCAST) {
-                    break;
-                }
-                // discoveredValidUid = header->address;
-                // TODO: for time staggered replies, need to wait for a bit / need other logic
-                sendPacket(DiscoverySilence, header->address);  // try to silence node
-                discoveryState = DiscoveryWaitingForSilenceACK;
-                // printf("\n[DSC] State: %d", discoveryState);
-                break;
-            case DiscoverySilence|Response:  // received discovery silence ACK from node (indicating correct address was indeed discovered)
-                if (header->address == ADDR_BROADCAST) {
-                    break;
-                }
-                // if (header->address == discoveredValidUid) { // if we got valid crc, it ought to be correct :shrug:
-                    if (_discoveredUids && discoveredUidsNum < _discoveredUidsSize) {
-                        _discoveredUids[discoveredUidsNum++] = header->address;
-                    }
-                    discoveryState = DiscoveryGotValidUID;
-                    // printf("\n[DSC] State: %d", discoveryState);
-                // }
-                // else {
-                    // also indicates collision, I guess
-                    // printf("Error: Other node than expected replied to discovery silence. (Expected: %016llX, got: %016llX)\n", discoveredValidUid, header->address);
-                    // _discoverySilenceCollision = true;
-                    // discoveryState = 
-                // }
-                
-                break;
-            case DiscoveryInit:
-            case DiscoveryInit|Response:
-            case DiscoveryBurst:
-            case DiscoverySilence:
-                // ignore own / duplicate messages
+
+    switch (header->cmd) {
+        case DiscoveryInit:
+            _discovered = false;
             break;
-            default:
-                _packetCallback(header, payload, this);
-                break;
-        }
+        case DiscoveryBurst:
+            // TODO:
+            // Send time staggered? One discovery burst reply takes roughly 130 us @ 1MBaud
+            // calculate timeslots based on baud rate, set maximum slots / delay, maybe 1ms? (~7 slots @ 1MBaud)
+            if (!_discovered) {
+                cmd_discovery_burst_t *disc = (cmd_discovery_burst_t *)header->data;
+                // printf(" RXed burst ");
+                if (_uid >= disc->searchAddress_min && _uid <= disc->searchAddress_max) {
+                    sendPacket(DiscoveryBurst|Response, _uid);   // respond to burst
+                }
+            }
+            break;
+        case DiscoverySilence:
+            // printf(" Discovered! ");
+            sendPacket(DiscoverySilence|Response, _uid); // respond to silence
+            _discovered = true;
+            break;
+        case DiscoveryInit|Response:
+        case DiscoveryBurst|Response:
+        case DiscoverySilence|Response:
+            // ignore own / duplicate messages
+            break;
+        case Data:
+            if (_dataCallback) {
+                _dataCallback(payload, header->len);
+            }
+            break;
+        default:
+            _packetCallback(header, payload, this);
+            break;
     }
 }
-
-// void RBLB_Host::handlePacketInternal(uidCommHeader_t *header, uint8_t *payload) {
-//     RBLB::handlePacketInternal(header, payload);
-//     if (_uid == ADDR_HOST) {    // Am Host
-
-//     }
-// }
 
 size_t RBLB::sendPacket(uint8_t cmd, uint64_t dstUid, const uint8_t *payload, size_t payloadSize) {
     uint16_t packetSize = sizeof(uidCommHeader_t) + payloadSize + sizeof(uint16_t);     // header + payload + CRC
