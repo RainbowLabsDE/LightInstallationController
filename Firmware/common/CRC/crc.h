@@ -25,6 +25,11 @@ uint8_t crc7(const uint8_t* data, int length);
 uint16_t crc16(const uint8_t* data, int length);
 void update_crc16(uint16_t *pCrc16, const uint8_t data[], size_t length);
 
+// define CRC_NOTABLE to 1 to use table-less implementation of crc16
+#if !defined CRC_NOTABLE
+    #define CRC_NOTABLE 0
+#endif
+
 #endif
 
 /* [] END OF FILE */

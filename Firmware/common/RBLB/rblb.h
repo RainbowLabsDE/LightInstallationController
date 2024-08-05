@@ -19,6 +19,12 @@ class RBLB {
         GetParameters,
         GetStatus,          // Voltage / Temperature / uptime? / ???
         Reset,
+        SaveParameters,     // Saves parameters to flash
+
+        // Bootloader
+        FlashStart = 0x70,   
+        FlashPage,
+        FlashDone,
     };
 
     static const uint8_t Response = 0x80;
@@ -80,6 +86,14 @@ class RBLB {
         } cmd_status_s;
         uint8_t raw[sizeof(cmd_status_s)];
     } cmd_status_t;
+
+    typedef union {
+        struct {
+            uint32_t address;
+            uint8_t data[64];
+        };
+        uint16_t completeCrc;
+    } cmd_flashPage_t;
     #pragma pack(pop)
 
 

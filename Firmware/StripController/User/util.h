@@ -1,3 +1,4 @@
+#pragma once 
 
 #include <ch32v00x.h>
 #include <stdio.h>
@@ -30,3 +31,21 @@ uint64_t getUID();
 int flashOBWrite(uint8_t *data, size_t size);
 // Read custom data after the system option bytes, returns -2 if no valid data was found
 int flashOBRead(uint8_t *dst, size_t size);
+
+// Setup watchdog timer
+// reload_val: 12 bit
+// prescaler: from 128 kHz LSI clock
+static void iwdg_setup(uint16_t reload_val, uint8_t prescaler) {
+	IWDG->CTLR = 0x5555;
+	IWDG->PSCR = prescaler;
+
+	IWDG->CTLR = 0x5555;
+	IWDG->RLDR = reload_val & 0xfff;
+
+	IWDG->CTLR = 0xCCCC;
+}
+
+// Feed watchdog timer
+static void iwdg_feed() {
+	IWDG->CTLR = 0xAAAA;
+}

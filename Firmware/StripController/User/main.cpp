@@ -205,6 +205,9 @@ void rblbPacketCallback(RBLB::uidCommHeader_t *header, uint8_t *payload, RBLB* r
         case RBLB::CMD::Reset:
             NVIC_SystemReset();
             break;
+        case RBLB::CMD::SaveParameters:
+            config.save();
+            break;
     }
 }
 
@@ -274,6 +277,7 @@ RBLB rblb(rs485Write, rblbPacketCallback, millis, internalLedDataBuf, LED_DATA_B
 int main(void) {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     SysTickInit();
+    iwdg_setup(4095, IWDG_Prescaler_128);	// prsc=128 -> 1kHz WDG Timer => reload_val ~= ms
     gpioInit();
     uart1.init();
     // uart1.sendBytes((uint8_t*)"Hello World!", 13);
@@ -300,6 +304,7 @@ int main(void) {
     uint8_t serBuf[32];
 
     while (1) {
+        iwdg_feed();
         size_t bytesRead = uart1.readBytes(serBuf, sizeof(serBuf)); // takes ~2us when not doing anything. When copying data, up to 10us was seen
         for (size_t i = 0; i < bytesRead; i++) {
             rblb.handleByte(serBuf[i]);     // takes 2.8us for data bytes (and ~ 2.5us for header bytes), TODO: optimize
